@@ -1,0 +1,359 @@
+Create a polished, mobile-friendly custom calorie tracking web app.
+
+App name: Custom Calorie Tracker
+
+Goal:
+
+Build a simple calorie tracking app where the user can track daily calories, add or subtract calories, calculate calories from grams eaten, and see each day color-coded based on total calories consumed.
+
+Use:
+
+- React + Vite
+
+- CSS or Tailwind, whichever is easiest in this Replit project
+
+- LocalStorage for saving all data
+
+- No backend required for now
+
+- Clean mobile-first design that works well on iPhone-sized screens
+
+Core features:
+
+1. Main Dashboard / Today Page
+
+Create a main page that shows:
+
+- App title
+
+- Current date
+
+- Current live time
+
+- Today’s calorie total
+
+- A large color-coded status card showing today’s calorie range
+
+- Buttons:
+
+  - Add Calories
+
+  - Subtract Calories
+
+  - Add Food by Grams
+
+  - View Calendar
+
+  - Settings
+
+When the user adds an entry, it should automatically save to the current day based on the device’s date.
+
+Each entry must include:
+
+- Entry type: added calories, subtracted calories, or food calculation
+
+- Number of calories
+
+- Optional food/item name
+
+- Timestamp showing exactly when the entry was created
+
+- Whether it added or subtracted from the daily total
+
+Example entry display:
+
+“Quest Bar — +180 calories — 9:42 AM”
+
+“Correction — -50 calories — 1:12 PM”
+
+2. Add / Subtract Calories
+
+Create a form or modal where the user can:
+
+- Enter a number of calories
+
+- Choose Add or Subtract
+
+- Optionally enter a note or food name
+
+- Submit it
+
+If they subtract calories, the daily total should decrease.
+
+The app should prevent the total from going below 0 unless the user confirms or the app simply clamps the total at 0.
+
+3. Add Food by Grams Calculator
+
+Create a separate calculator form where the user enters:
+
+- Food name
+
+- Grams eaten
+
+- Serving size in grams
+
+- Calories per serving
+
+The app should calculate:
+
+calories consumed = grams eaten / serving size grams × calories per serving
+
+Example:
+
+If the user ate 50g, serving size is 28g, and calories per serving is 140:
+
+50 / 28 × 140 = 250 calories
+
+After calculating, allow the user to save that result as a calorie entry for the current day.
+
+Show the math clearly before saving, like:
+
+“50g eaten ÷ 28g serving size × 140 calories = 250 calories”
+
+4. Calendar View
+
+Create a calendar-style view showing days of the current month.
+
+Each day should:
+
+- Show the date number
+
+- Show total calories for that day
+
+- Be color-coded based on the configured calorie ranges
+
+- Be clickable so the user can view that day’s entries
+
+The current day should be visually highlighted.
+
+Allow navigation between months:
+
+- Previous month
+
+- Next month
+
+- Today button
+
+5. Default Color Codes
+
+By default, use these calorie color ranges:
+
+- Less than 1200 calories: Green
+
+- 1200–1300 calories: Light Green
+
+- 1301–1600 calories: Amber Yellow
+
+- 1601–2000 calories: Red
+
+- 2001–2300 calories: Dark Purple
+
+- 2301–3000 calories: Light Purple
+
+- 3001+ calories: Very light purple / nearly white
+
+Use colors that are visually clear but still modern and clean.
+
+Suggested colors:
+
+- Green: #22c55e
+
+- Light Green: #86efac
+
+- Amber Yellow: #facc15
+
+- Red: #ef4444
+
+- Dark Purple: #6d28d9
+
+- Light Purple: #c084fc
+
+- Very Light Purple: #f3e8ff
+
+Text should stay readable on all colors.
+
+6. Settings Page
+
+Create a settings page where the user can configure the calorie color codes.
+
+The settings page should let the user edit:
+
+- Range label
+
+- Minimum calories
+
+- Maximum calories, except the final 3000+ range
+
+- Color
+
+- Preview of the color
+
+The user should be able to save custom settings, and those settings should affect the dashboard and calendar immediately.
+
+Also include a “Reset to Defaults” button.
+
+7. Daily Entry Details Page
+
+When the user clicks a day from the calendar, show:
+
+- Date
+
+- Total calories
+
+- Color-coded range/status
+
+- List of all entries from that day
+
+- Timestamp for each entry
+
+- Delete button for each entry
+
+- Optional edit button if easy to implement
+
+If there are no entries, show:
+
+“No entries for this day yet.”
+
+8. Data Storage
+
+Use LocalStorage to save:
+
+- All calorie entries
+
+- Custom color settings
+
+- User preferences
+
+Data should remain after refreshing the page.
+
+Suggested data structure:
+
+entries = [
+
+  {
+
+    id: unique id,
+
+    date: "2026-06-05",
+
+    time: "9:51 AM",
+
+    timestamp: full ISO timestamp,
+
+    type: "add" | "subtract" | "grams",
+
+    name: "Food name or note",
+
+    calories: 250,
+
+    gramsEaten: optional,
+
+    servingGrams: optional,
+
+    caloriesPerServing: optional
+
+  }
+
+]
+
+colorRanges = [
+
+  {
+
+    id: "under-1200",
+
+    label: "Under 1200",
+
+    min: 0,
+
+    max: 1199,
+
+    color: "#22c55e"
+
+  }
+
+]
+
+9. Design Style
+
+Make the app look modern, clean, and easy to use.
+
+Design direction:
+
+- Mobile-first
+
+- Rounded cards
+
+- Soft shadows
+
+- Clean spacing
+
+- Simple bottom navigation or top navigation
+
+- Large readable numbers
+
+- Easy-to-tap buttons
+
+- Calm modern color palette
+
+- Dashboard should feel like a health/fitness tracking app
+
+Important:
+
+This should not look like a basic unfinished form app. Make it feel polished.
+
+10. Navigation
+
+Use simple React state or React Router.
+
+Pages needed:
+
+- Today
+
+- Calendar
+
+- Day Details
+
+- Settings
+
+A bottom navigation bar would be ideal:
+
+- Today
+
+- Calendar
+
+- Settings
+
+11. Validation
+
+Add basic validation:
+
+- Calories must be a number greater than 0
+
+- Grams eaten must be greater than 0
+
+- Serving size grams must be greater than 0
+
+- Calories per serving must be greater than 0
+
+- Show friendly error messages if the user enters invalid data
+
+12. Final Deliverable
+
+When finished:
+
+- Make sure the app runs successfully in Replit
+
+- Make sure there are no console errors
+
+- Make sure LocalStorage works
+
+- Make sure adding, subtracting, deleting, and calculating calories works
+
+- Make sure calendar color coding works
+
+- Make sure settings can change the color ranges
+
+- Make sure the UI is clean on mobile and desktop
+
+Build the full working app now

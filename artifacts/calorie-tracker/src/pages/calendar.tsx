@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from "date-fns";
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from "date-fns";
 import { Link } from "wouter";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCalorieData } from "../hooks/use-calorie-data";
@@ -13,22 +13,22 @@ export default function Calendar() {
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-  
-  // padding for first week row
-  const startDayOfWeek = monthStart.getDay(); // 0 = Sunday
+
+  const startDayOfWeek = monthStart.getDay();
   const paddingDays = Array.from({ length: startDayOfWeek }).map((_, i) => i);
 
-  const getDayTotal = (dateStr: string) => {
+  const getDayConsumed = (dateStr: string) => {
     const dayEntries = entries.filter(e => e.date === dateStr);
     if (dayEntries.length === 0) return null;
     const total = dayEntries.reduce((acc, entry) => {
+      if (entry.type === 'burned') return acc;
       return acc + (entry.type === 'subtract' ? -entry.calories : entry.calories);
     }, 0);
     return Math.max(0, total);
   };
 
   return (
-    <div className="flex-1 p-6 flex flex-col h-full animate-in fade-in duration-300 bg-white">
+    <div className="flex-1 p-6 flex flex-col h-full animate-in fade-in duration-300 bg-white overflow-y-auto">
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Calendar</h1>
         <Button variant="outline" size="sm" onClick={() => setCurrentMonth(new Date())}>
@@ -56,15 +56,15 @@ export default function Calendar() {
         {paddingDays.map(i => (
           <div key={`padding-${i}`} className="aspect-square rounded-xl" />
         ))}
-        
+
         {daysInMonth.map(day => {
           const dateStr = format(day, "yyyy-MM-dd");
-          const total = getDayTotal(dateStr);
+          const total = getDayConsumed(dateStr);
           const hasData = total !== null;
-          
-          let bgColor = "#f3f4f6"; // gray-100
-          let textColor = "#9ca3af"; // gray-400
-          
+
+          let bgColor = "#f3f4f6";
+          let textColor = "#9ca3af";
+
           if (hasData) {
             const range = getColorForCalories(total, ranges);
             bgColor = range.color;
@@ -75,9 +75,10 @@ export default function Calendar() {
 
           return (
             <Link key={dateStr} href={`/day/${dateStr}`}>
-              <div 
+              <div
                 className={`aspect-square rounded-xl flex flex-col items-center justify-center cursor-pointer transition-transform hover:scale-95 active:scale-90 ${isCurrentDay ? 'ring-2 ring-offset-2 ring-primary' : ''}`}
-                style={hasData ? { backgroundColor: bgColor, color: textColor } : { backgroundColor: bgColor, color: textColor }}
+                style={{ backgroundColor: bgColor, color: textColor }}
+                data-testid={`calendar-day-${dateStr}`}
               >
                 <span className="text-sm font-semibold">{format(day, "d")}</span>
                 {hasData && (

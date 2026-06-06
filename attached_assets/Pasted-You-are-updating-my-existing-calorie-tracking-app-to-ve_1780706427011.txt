@@ -1,0 +1,694 @@
+You are updating my existing calorie tracking app to version 1.1.
+
+This is not a full rebuild. Please inspect the current codebase first, understand the existing app structure, then carefully add these features while preserving the current design style, localStorage data, existing screens, and current functionality.
+
+Current app summary:
+- The app is called Caly / Custom Calorie Tracker.
+- It tracks daily calorie entries.
+- It has Today, Calendar, and Settings pages.
+- It has quick add, by grams, calendar, daily logs, color-coded calorie ranges, and editable calorie color settings.
+- The large calorie circle currently displays total calories consumed for the current day.
+- Keep the app mobile-first, polished, clean, and modern.
+
+Update version:
+v1.1 — Convenience, Net Calories, Temporary Photos, Saved Entries, and Meal Entries
+
+Important:
+Do not break existing functionality. Keep the current user interface style but improve it where needed.
+
+====================================================
+1. DAILY CALORIES BURNED / NET CALORIES
+====================================================
+
+Add a new entry type called “Calories Burned.”
+
+The user should be able to manually enter how many calories they burned for the day.
+
+Add a button or action called:
+- Add Burned Calories
+
+The user should be able to enter:
+- Calories burned
+- Optional note
+- Timestamp should be automatically added
+
+The app should now show three daily values:
+
+- Consumed Calories
+- Burned Calories
+- Net Calories
+
+Formula:
+
+Net Calories = Consumed Calories - Burned Calories
+
+Example:
+
+Consumed: 1800 kcal
+Burned: 350 kcal
+Net: 1450 kcal
+
+Important:
+The large main calorie circle should still be based on TOTAL CONSUMED calories, not net calories.
+
+The color coding should also remain based on total consumed calories.
+
+Burned calories should be displayed separately under or near the main calorie circle in a clean stats row/card.
+
+Example layout:
+
+Consumed: 1800
+Burned: 350
+Net: 1450
+
+Calories burned entries should appear in the daily log, but visually separate them from food entries with a clear label such as “Burned” or an icon.
+
+====================================================
+2. TEMPORARY PHOTO ENTRIES
+====================================================
+
+Add a new section called “Temporary Photos.”
+
+This should be separate from Today’s Log so it does not clutter calorie entries.
+
+Purpose:
+The user can quickly take or upload photos of nutrition labels, packages, or meals, then later come back and enter the calorie information after they are done eating.
+
+Temporary photos should include:
+- Photo image preview
+- Date/time added
+- Optional note
+- Expiration time
+- Delete button
+- Optional “Convert to Entry” or “Use Photo” button if easy to implement
+
+The photo section should be available from Today, likely as a card or button called:
+- Add Temporary Photo
+- Temporary Photos
+
+Expiration:
+- Default expiration should be 24 hours.
+- Add a Settings option to choose either:
+  - 24 hours
+  - 48 hours
+
+Expired photos should automatically be deleted when:
+- The app loads
+- The user opens the Temporary Photos section
+- The user refreshes the app
+
+Important technical note:
+Do not store large photos in regular localStorage if possible because photos can exceed localStorage limits. Use IndexedDB for temporary photo storage if possible. If the current app is simple and IndexedDB is too much, implement a safe fallback, but the preferred method is IndexedDB.
+
+Temporary photos are local-only. They do not need a backend.
+
+Each photo should have this data:
+
+{
+  id,
+  imageData or indexedDB reference,
+  note,
+  createdAt,
+  expiresAt
+}
+
+The user should be able to manually delete any temporary photo before it expires.
+
+====================================================
+3. BY GRAMS UPDATE — TWO METHODS
+====================================================
+
+The existing “By Grams” feature must remain.
+
+Add two methods/tabs inside By Grams:
+
+A. Grams Eaten
+B. Weigh by Container
+
+------------------------------------
+A. Grams Eaten
+------------------------------------
+
+Keep the existing method.
+
+The user enters:
+- Food name
+- Grams eaten
+- Serving size grams
+- Calories per serving
+
+Formula:
+
+grams eaten / serving size grams * calories per serving = calories consumed
+
+Show the math before saving.
+
+Example:
+
+50g eaten ÷ 28g serving × 140 calories = 250 calories
+
+------------------------------------
+B. Weigh by Container
+------------------------------------
+
+Add a new method called “Weigh by Container.”
+
+Purpose:
+The user can weigh the whole container before eating and after eating. The app calculates how much they ate.
+
+The user enters:
+- Food name
+- Starting container weight in grams
+- Ending container weight in grams
+- Serving size grams
+- Calories per serving
+
+Formula:
+
+starting weight - ending weight = grams eaten
+
+Then:
+
+grams eaten / serving size grams * calories per serving = calories consumed
+
+Example:
+
+Starting weight: 500g
+Ending weight: 465g
+Amount eaten: 35g
+Serving size: 32g
+Calories per serving: 190
+
+35 ÷ 32 × 190 = 208 calories
+
+Validation:
+- Starting weight must be greater than ending weight.
+- Ending weight cannot be negative.
+- Serving size must be greater than 0.
+- Calories per serving must be greater than 0.
+
+Show the math clearly before the user saves the entry.
+
+Important:
+For v1.1, only add Weigh by Container to the main By Grams feature. Do not add Weigh by Container inside Meal Entry yet.
+
+====================================================
+4. MEAL ENTRY FEATURE
+====================================================
+
+Add a new entry option called “Meal Entry.”
+
+Purpose:
+The user can create a grouped meal made of multiple ingredients/items.
+
+Example:
+
+Bacon Egg & Cheese Sandwich
+
+- Egg: 70 calories
+- Bacon: 90 calories
+- Cheese: 80 calories
+- Bread: 120 calories
+- Butter: 50 calories
+
+Total: 410 calories
+
+The meal should appear in the log as one grouped entry, but the user should be able to expand it to see each ingredient.
+
+Meal Entry fields:
+- Meal name
+- Ingredient list
+- Timestamp
+- Total calories
+- Save meal option
+- Duplicate/copy option
+- Delete option
+
+Each ingredient should have two possible input methods:
+
+A. Manual Calories
+B. Automatic by Grams
+
+------------------------------------
+Ingredient Method A: Manual Calories
+------------------------------------
+
+Fields:
+- Ingredient name
+- Calories
+
+Example:
+Egg — 70 calories
+
+------------------------------------
+Ingredient Method B: Automatic by Grams
+------------------------------------
+
+Fields:
+- Ingredient name
+- Grams eaten
+- Serving size grams
+- Calories per serving
+
+Formula:
+
+grams eaten / serving size grams * calories per serving = calories consumed
+
+Example:
+35g eaten ÷ 32g serving × 190 calories = 208 calories
+
+Each ingredient using automatic mode should show its calculated calories.
+
+The full meal total should update automatically as ingredients are added, edited, or removed.
+
+Validation:
+- Meal must have a name.
+- Meal must have at least one ingredient.
+- Ingredient calories must be valid.
+- Grams, serving size, and calories per serving must be greater than 0.
+
+Meal entries should be stored as entries with type “meal.”
+
+Suggested meal entry structure:
+
+{
+  id,
+  date,
+  time,
+  timestamp,
+  type: "meal",
+  name: "Bacon Egg & Cheese Sandwich",
+  calories: 410,
+  ingredients: [
+    {
+      id,
+      name: "Egg",
+      inputMethod: "manual",
+      calories: 70
+    },
+    {
+      id,
+      name: "Peanut Butter",
+      inputMethod: "grams",
+      gramsEaten: 35,
+      servingGrams: 32,
+      caloriesPerServing: 190,
+      calories: 208
+    }
+  ]
+}
+
+====================================================
+5. SAVED LIST FEATURE
+====================================================
+
+Add a new main section called “Saved.”
+
+Add it to the bottom navigation.
+
+Bottom navigation should become:
+
+- Today
+- Calendar
+- Saved
+- Settings
+
+The Saved page should have two tabs:
+
+A. Meals
+B. Regular
+
+------------------------------------
+Saved Meals
+------------------------------------
+
+Users should be able to save meal entries for reuse.
+
+Saved meal should include:
+- Meal name
+- Ingredients
+- Total calories
+- Add to Today button
+- Add to Selected Day button if easy
+- Edit saved meal
+- Delete saved meal
+
+------------------------------------
+Saved Regular
+------------------------------------
+
+Users should be able to save regular entries for reuse.
+
+Saved regular item should include:
+- Name
+- Calories
+- Type if relevant
+- Add to Today button
+- Add to Selected Day button if easy
+- Edit saved item
+- Delete saved item
+
+Example saved regular items:
+- Quest Bar — 180 calories
+- Protein Shake — 160 calories
+- Peanut Butter Serving — 190 calories
+
+Example saved meals:
+- Bacon Egg & Cheese Sandwich — 410 calories
+- Turkey Sandwich — 320 calories
+
+When adding a saved item to a day, create a normal daily entry with the current timestamp.
+
+If adding to a past day, show the past-day warning described below.
+
+====================================================
+6. COPY / DUPLICATE LOG ITEMS
+====================================================
+
+Add the ability to copy/duplicate items in the log.
+
+For every normal entry and meal entry, add an option such as:
+
+- Duplicate
+- Save to Saved List
+
+Duplicate should allow:
+- Duplicate to Today
+- Duplicate to the currently selected day
+
+If the currently selected day is not today, show the past-day warning before making the change.
+
+Do not call this “copy/paste” in the UI if that makes it confusing. “Duplicate” is better.
+
+====================================================
+7. EDITING PAST DAYS
+====================================================
+
+The user should be able to add, edit, delete, duplicate, and save entries on days that are not the current day.
+
+When the user clicks a day in the calendar, show that day’s details.
+
+If the selected day is not today, show an “Edit This Day” button or clearly indicate they are viewing a past/future day.
+
+Every time the user tries to make a change to a day that is not today, show a warning confirmation.
+
+Warning text:
+
+“Warning: You are editing [selected date], not today. Are you sure you want to make this change?”
+
+This warning should appear for:
+- Adding a calorie entry
+- Adding a By Grams entry
+- Adding a Weigh by Container entry
+- Adding burned calories
+- Adding a meal entry
+- Deleting an entry
+- Editing an entry
+- Duplicating an entry
+- Adding a saved item
+- Saving changes that affect a non-current day
+
+The user must confirm before the change is applied.
+
+This is important so the user does not accidentally add today’s food to the wrong date.
+
+====================================================
+8. SETTINGS CLEANUP
+====================================================
+
+The Settings page is currently getting too long because the Calorie Color Ranges take up the whole screen.
+
+Please convert Settings into clean collapsible dropdown/accordion sections.
+
+Settings should have sections like:
+
+- Calorie Color Ranges
+- Temporary Photo Settings
+- Updates
+- App/Data Options if needed
+
+The Calorie Color Ranges section should be collapsed by default.
+
+When expanded, it should show the existing editable color range cards.
+
+Do not remove the ability to edit calorie ranges.
+
+Keep:
+- Range label
+- Min calories
+- Max calories
+- Color preview
+- Save settings
+- Reset to defaults
+
+Add Temporary Photo Settings:
+- Photo expiration: 24 hours or 48 hours
+
+Add App Version display:
+- App Version: v1.1
+
+====================================================
+9. UPDATES TAB / SECTION
+====================================================
+
+Add an Updates section inside Settings.
+
+This should show update notes for v1.1.
+
+Add this content:
+
+Version 1.1
+
+New Features:
+- Added calories burned tracking
+- Added daily net calories
+- Added temporary photo entries
+- Added 24-hour and 48-hour photo expiration settings
+- Added Weigh by Container calculator
+- Added Meal Entry mode
+- Added manual and automatic ingredient calorie entry
+- Added Saved list for meals and regular entries
+- Added duplicate entry options
+- Added editing support for previous calendar days
+- Added warnings when editing a day that is not today
+- Converted calorie color ranges into a dropdown settings section
+
+Bug Fixes:
+- Fixed missing calendar icon
+- Improved settings page organization
+
+Also keep room for future updates, meaning the Updates section should be structured so more versions can be added later.
+
+====================================================
+10. CALENDAR ICON BUG FIX
+====================================================
+
+There is a bug where the calendar quick-action card icon appears blank/missing.
+
+Fix this.
+
+Check:
+- Icon imports
+- Icon component names
+- Styling
+- Color contrast
+- Whether the icon is accidentally missing or hidden
+
+Use a reliable icon from lucide-react such as:
+- Calendar
+- CalendarDays
+- CalendarRange
+
+Make sure the calendar icon appears correctly in:
+- The Today page quick-action card
+- The bottom navigation
+- Anywhere else calendar icons are used
+
+====================================================
+11. DATA STORAGE
+====================================================
+
+Preserve existing localStorage data as much as possible.
+
+Update the data model carefully without wiping existing entries.
+
+Existing entries should still work.
+
+Suggested updated entry types:
+
+type can be:
+- "add"
+- "subtract"
+- "grams"
+- "container"
+- "burned"
+- "meal"
+
+Suggested entry structure:
+
+{
+  id,
+  date: "YYYY-MM-DD",
+  time: "8:22 PM",
+  timestamp: full ISO timestamp,
+  type,
+  name,
+  calories,
+  note,
+  gramsEaten,
+  servingGrams,
+  caloriesPerServing,
+  startingWeight,
+  endingWeight,
+  ingredients
+}
+
+Saved items:
+
+savedRegular = [
+  {
+    id,
+    name,
+    calories,
+    type,
+    createdAt
+  }
+]
+
+savedMeals = [
+  {
+    id,
+    name,
+    calories,
+    ingredients,
+    createdAt
+  }
+]
+
+Temporary photo settings:
+
+settings = {
+  photoExpirationHours: 24
+}
+
+Use 24 or 48 only.
+
+====================================================
+12. DESIGN REQUIREMENTS
+====================================================
+
+Keep the current app’s clean mobile UI.
+
+The new features should look polished and native to the existing app.
+
+Use:
+- Rounded cards
+- Clean spacing
+- Large readable numbers
+- Easy tap targets
+- Bottom navigation
+- Clear icons
+- Friendly empty states
+- Smooth dropdowns/accordions if simple to implement
+
+Make sure the app looks good on:
+- iPhone screen sizes
+- Desktop browser
+
+Do not make the UI cluttered.
+
+Temporary photos should have their own section.
+Saved entries should have their own page.
+Meal entries should be expandable/collapsible in the log.
+
+====================================================
+13. VALIDATION / ERROR HANDLING
+====================================================
+
+Add friendly validation messages.
+
+Validation rules:
+- Calories must be greater than 0.
+- Burned calories must be greater than 0.
+- Grams eaten must be greater than 0.
+- Serving size grams must be greater than 0.
+- Calories per serving must be greater than 0.
+- Starting container weight must be greater than ending container weight.
+- Meal entries must have at least one ingredient.
+- Meal entries must have a meal name.
+- Photo uploads should only accept images.
+- Photo expiration must be either 24 or 48 hours.
+
+====================================================
+14. TESTING / AUDIT BEFORE FINISHING
+====================================================
+
+After implementing, test the app carefully.
+
+Verify:
+
+Today Page:
+- Total consumed still controls the big circle.
+- Burned calories show separately.
+- Net calories calculate correctly.
+- Today’s log still works.
+- Temporary Photos section appears separately.
+
+Burned Calories:
+- Can add burned calories.
+- Burned calories subtract from net but not consumed.
+- Burned entries appear in the log.
+
+By Grams:
+- Existing grams eaten method still works.
+- New Weigh by Container method works.
+- Math is shown clearly.
+- Validation works.
+
+Meal Entry:
+- Can create a meal with manual ingredients.
+- Can create a meal with automatic grams-based ingredients.
+- Meal total updates correctly.
+- Meal appears as one log entry.
+- Meal can expand to show ingredients.
+
+Saved Page:
+- Bottom navigation includes Saved.
+- Saved has Meals and Regular tabs.
+- Can save regular entries.
+- Can save meal entries.
+- Can add saved items back to today.
+
+Past Day Editing:
+- Calendar days can be opened.
+- Non-current days can be edited.
+- Warning appears every time before changing a non-current day.
+- Confirming applies the change.
+- Canceling prevents the change.
+
+Temporary Photos:
+- Can add a photo.
+- Can add an optional note.
+- Photo appears in Temporary Photos section.
+- Photo expiration setting works for 24 or 48 hours.
+- Expired photos are deleted automatically.
+
+Settings:
+- Calorie Color Ranges are in a dropdown/accordion.
+- Color range editing still works.
+- Temporary Photo Settings exist.
+- Updates section exists.
+- App Version says v1.1.
+
+Bug Fix:
+- Calendar icon is visible on the quick-action card.
+- Calendar icon is visible in bottom navigation.
+
+Data:
+- Existing entries are not wiped.
+- Refreshing the page keeps entries.
+- Saved items persist.
+- Settings persist.
+- No console errors.
+
+Please complete the v1.1 update now.

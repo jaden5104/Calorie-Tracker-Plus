@@ -9,6 +9,7 @@ import Dashboard from "@/pages/dashboard";
 import Calendar from "@/pages/calendar";
 import DayDetail from "@/pages/day-detail";
 import Settings from "@/pages/settings";
+import Saved from "@/pages/saved";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ function Router() {
         <Route path="/" component={Dashboard} />
         <Route path="/calendar" component={Calendar} />
         <Route path="/day/:date" component={DayDetail} />
+        <Route path="/saved" component={Saved} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>

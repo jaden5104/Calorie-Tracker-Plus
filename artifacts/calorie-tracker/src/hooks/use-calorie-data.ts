@@ -1,16 +1,30 @@
 import { useState, useEffect, useCallback } from 'react';
 
+export interface Ingredient {
+  id: string;
+  name: string;
+  inputMethod: "manual" | "grams";
+  calories: number;
+  gramsEaten?: number;
+  servingGrams?: number;
+  caloriesPerServing?: number;
+}
+
 export interface CalorieEntry {
   id: string;
   date: string;
   time: string;
   timestamp: string;
-  type: "add" | "subtract" | "grams";
+  type: "add" | "subtract" | "grams" | "container" | "burned" | "meal";
   name: string;
   calories: number;
   gramsEaten?: number;
   servingGrams?: number;
   caloriesPerServing?: number;
+  note?: string;
+  startingWeight?: number;
+  endingWeight?: number;
+  ingredients?: Ingredient[];
 }
 
 export interface ColorRange {
@@ -19,6 +33,26 @@ export interface ColorRange {
   min: number;
   max: number | null;
   color: string;
+}
+
+export interface SavedRegularItem {
+  id: string;
+  name: string;
+  calories: number;
+  type: "add" | "grams";
+  createdAt: string;
+}
+
+export interface SavedMeal {
+  id: string;
+  name: string;
+  calories: number;
+  ingredients: Ingredient[];
+  createdAt: string;
+}
+
+export interface AppSettings {
+  photoExpirationHours: 24 | 48;
 }
 
 const DEFAULT_COLOR_RANGES: ColorRange[] = [
@@ -50,6 +84,33 @@ export function useCalorieData() {
     }
   });
 
+  const [savedRegular, setSavedRegular] = useState<SavedRegularItem[]>(() => {
+    try {
+      const stored = localStorage.getItem('saved_regular');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [savedMeals, setSavedMeals] = useState<SavedMeal[]>(() => {
+    try {
+      const stored = localStorage.getItem('saved_meals');
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => {
+    try {
+      const stored = localStorage.getItem('app_settings');
+      return stored ? JSON.parse(stored) : { photoExpirationHours: 24 };
+    } catch {
+      return { photoExpirationHours: 24 };
+    }
+  });
+
   useEffect(() => {
     localStorage.setItem('calorie_entries', JSON.stringify(entries));
   }, [entries]);
@@ -58,11 +119,32 @@ export function useCalorieData() {
     localStorage.setItem('color_ranges', JSON.stringify(ranges));
   }, [ranges]);
 
+  useEffect(() => {
+    localStorage.setItem('saved_regular', JSON.stringify(savedRegular));
+  }, [savedRegular]);
+
+  useEffect(() => {
+    localStorage.setItem('saved_meals', JSON.stringify(savedMeals));
+  }, [savedMeals]);
+
+  useEffect(() => {
+    localStorage.setItem('app_settings', JSON.stringify(appSettings));
+  }, [appSettings]);
+
   const addEntry = useCallback((entry: Omit<CalorieEntry, 'id' | 'timestamp'>) => {
     const newEntry: CalorieEntry = {
       ...entry,
       id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
+    };
+    setEntries(prev => [newEntry, ...prev]);
+  }, []);
+
+  const addEntryToDate = useCallback((entry: Omit<CalorieEntry, 'id'>, date: string) => {
+    const newEntry: CalorieEntry = {
+      ...entry,
+      id: crypto.randomUUID(),
+      date,
     };
     setEntries(prev => [newEntry, ...prev]);
   }, []);
@@ -75,12 +157,46 @@ export function useCalorieData() {
     setRanges(DEFAULT_COLOR_RANGES);
   }, []);
 
+  const addSavedRegular = useCallback((item: Omit<SavedRegularItem, 'id' | 'createdAt'>) => {
+    setSavedRegular(prev => [{ ...item, id: crypto.randomUUID(), createdAt: new Date().toISOString() }, ...prev]);
+  }, []);
+
+  const deleteSavedRegular = useCallback((id: string) => {
+    setSavedRegular(prev => prev.filter(i => i.id !== id));
+  }, []);
+
+  const addSavedMeal = useCallback((meal: Omit<SavedMeal, 'id' | 'createdAt'>) => {
+    setSavedMeals(prev => [{ ...meal, id: crypto.randomUUID(), createdAt: new Date().toISOString() }, ...prev]);
+  }, []);
+
+  const deleteSavedMeal = useCallback((id: string) => {
+    setSavedMeals(prev => prev.filter(m => m.id !== id));
+  }, []);
+
+  const updateSavedMeal = useCallback((id: string, updates: Partial<SavedMeal>) => {
+    setSavedMeals(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+  }, []);
+
+  const updateAppSettings = useCallback((settings: Partial<AppSettings>) => {
+    setAppSettings(prev => ({ ...prev, ...settings }));
+  }, []);
+
   return {
     entries,
     ranges,
+    savedRegular,
+    savedMeals,
+    appSettings,
     setRanges,
     addEntry,
+    addEntryToDate,
     deleteEntry,
-    resetRanges
+    resetRanges,
+    addSavedRegular,
+    deleteSavedRegular,
+    addSavedMeal,
+    deleteSavedMeal,
+    updateSavedMeal,
+    updateAppSettings,
   };
 }

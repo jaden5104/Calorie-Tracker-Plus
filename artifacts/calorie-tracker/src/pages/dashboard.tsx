@@ -27,10 +27,12 @@ function Clock() {
 }
 
 function MealIngredientRow({ ing, onRemove }: { ing: Ingredient; onRemove: () => void }) {
+  const qty = ing.quantity && ing.quantity !== 1 ? ing.quantity : null;
   return (
     <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
       <div>
         <span className="text-sm font-medium text-gray-800">{ing.name}</span>
+        {qty && <span className="text-xs text-gray-400 ml-1">×{qty}</span>}
         {ing.inputMethod === "grams" && (
           <span className="text-xs text-gray-400 ml-2">
             {ing.gramsEaten}g ÷ {ing.servingGrams}g × {ing.caloriesPerServing}
@@ -51,15 +53,18 @@ function AddIngredientForm({ onAdd }: { onAdd: (ing: Ingredient) => void }) {
   const [method, setMethod] = useState<"manual" | "grams">("manual");
   const [name, setName] = useState("");
   const [cals, setCals] = useState("");
+  const [qty, setQty] = useState("1");
   const [grams, setGrams] = useState("");
   const [serving, setServing] = useState("");
   const [calsPerServing, setCalsPerServing] = useState("");
 
-  const calcCals = method === "grams" && parseFloat(grams) > 0 && parseFloat(serving) > 0 && parseFloat(calsPerServing) > 0
-    ? Math.round((parseFloat(grams) / parseFloat(serving)) * parseFloat(calsPerServing))
-    : 0;
-
-  const canAdd = name.trim() && (method === "manual" ? parseInt(cals) > 0 : calcCals > 0);
+  const baseCals = method === "manual"
+    ? (parseInt(cals) || 0)
+    : (parseFloat(grams) > 0 && parseFloat(serving) > 0 && parseFloat(calsPerServing) > 0
+        ? Math.round((parseFloat(grams) / parseFloat(serving)) * parseFloat(calsPerServing)) : 0);
+  const qtyVal = parseFloat(qty) > 0 ? parseFloat(qty) : 1;
+  const totalCals = Math.round(baseCals * qtyVal);
+  const canAdd = !!name.trim() && baseCals > 0 && parseFloat(qty) > 0;
 
   const handleAdd = () => {
     if (!canAdd) return;
@@ -67,48 +72,127 @@ function AddIngredientForm({ onAdd }: { onAdd: (ing: Ingredient) => void }) {
       id: crypto.randomUUID(),
       name: name.trim(),
       inputMethod: method,
-      calories: method === "manual" ? parseInt(cals) : calcCals,
-      ...(method === "grams" ? {
-        gramsEaten: parseFloat(grams),
-        servingGrams: parseFloat(serving),
-        caloriesPerServing: parseFloat(calsPerServing),
-      } : {})
+      calories: totalCals,
+      ...(parseFloat(qty) !== 1 ? { quantity: parseFloat(qty) } : {}),
+      ...(method === "grams" ? { gramsEaten: parseFloat(grams), servingGrams: parseFloat(serving), caloriesPerServing: parseFloat(calsPerServing) } : {})
     };
     onAdd(ing);
-    setName(""); setCals(""); setGrams(""); setServing(""); setCalsPerServing("");
+    setName(""); setCals(""); setQty("1"); setGrams(""); setServing(""); setCalsPerServing("");
   };
 
   return (
     <div className="border border-dashed border-gray-200 rounded-xl p-4 space-y-3">
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setMethod("manual")}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${method === "manual" ? "bg-primary text-white" : "bg-gray-100 text-gray-600"}`}
-        >Manual</button>
-        <button
-          type="button"
-          onClick={() => setMethod("grams")}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${method === "grams" ? "bg-primary text-white" : "bg-gray-100 text-gray-600"}`}
-        >By Grams</button>
+        <button type="button" onClick={() => setMethod("manual")}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${method === "manual" ? "bg-primary text-white" : "bg-gray-100 text-gray-600"}`}>Manual</button>
+        <button type="button" onClick={() => setMethod("grams")}
+          className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${method === "grams" ? "bg-primary text-white" : "bg-gray-100 text-gray-600"}`}>By Grams</button>
       </div>
       <Input placeholder="Ingredient name" value={name} onChange={e => setName(e.target.value)} />
       {method === "manual" ? (
-        <Input type="number" inputMode="numeric" placeholder="Calories" value={cals} onChange={e => setCals(e.target.value)} min="1" />
-      ) : (
-        <div className="grid grid-cols-3 gap-2">
-          <Input type="number" inputMode="decimal" placeholder="Grams eaten" value={grams} onChange={e => setGrams(e.target.value)} />
-          <Input type="number" inputMode="decimal" placeholder="Serving (g)" value={serving} onChange={e => setServing(e.target.value)} />
-          <Input type="number" inputMode="decimal" placeholder="Cal/serving" value={calsPerServing} onChange={e => setCalsPerServing(e.target.value)} />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-[10px] text-gray-500 uppercase">Calories each</Label>
+            <Input type="number" inputMode="numeric" placeholder="e.g. 70" value={cals} onChange={e => setCals(e.target.value)} min="1" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] text-gray-500 uppercase">Quantity</Label>
+            <Input type="number" inputMode="decimal" placeholder="1" value={qty} onChange={e => setQty(e.target.value)} min="0.1" step="0.1" />
+          </div>
         </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2">
+            <Input type="number" inputMode="decimal" placeholder="Grams eaten" value={grams} onChange={e => setGrams(e.target.value)} />
+            <Input type="number" inputMode="decimal" placeholder="Serving (g)" value={serving} onChange={e => setServing(e.target.value)} />
+            <Input type="number" inputMode="decimal" placeholder="Cal/serving" value={calsPerServing} onChange={e => setCalsPerServing(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] text-gray-500 uppercase">Quantity</Label>
+            <Input type="number" inputMode="decimal" placeholder="1" value={qty} onChange={e => setQty(e.target.value)} min="0.1" step="0.1" />
+          </div>
+        </>
       )}
-      {method === "grams" && calcCals > 0 && (
+      {baseCals > 0 && (
         <div className="text-xs text-center text-gray-500 font-mono bg-gray-50 rounded-lg py-2">
-          {grams}g ÷ {serving}g × {calsPerServing} = <strong className="text-gray-800">{calcCals} kcal</strong>
+          {method === "grams" && `${grams}g ÷ ${serving}g × ${calsPerServing} = `}
+          <span>{baseCals} kcal each × {qty || 1} = </span>
+          <strong className="text-gray-800">{totalCals} kcal</strong>
         </div>
       )}
       <Button type="button" size="sm" className="w-full" onClick={handleAdd} disabled={!canAdd}>
-        Add Ingredient
+        Add Ingredient{totalCals > 0 ? ` (${totalCals} kcal)` : ""}
+      </Button>
+    </div>
+  );
+}
+
+function QuickAdjustDial({ onSubmit }: { onSubmit: (amount: number) => void }) {
+  const [value, setValue] = useState(0);
+  const touchStartY = useRef<number | null>(null);
+  const touchStartValue = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const clamp = (v: number) => Math.max(-1000, Math.min(1000, Math.round(v / 5) * 5));
+  const adjust = (delta: number) => setValue(v => clamp(v + delta));
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    adjust(e.deltaY < 0 ? 5 : -5);
+  };
+
+  const startRepeat = (delta: number) => {
+    adjust(delta);
+    intervalRef.current = setInterval(() => adjust(delta), 120);
+  };
+  const stopRepeat = () => { if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; } };
+
+  const isPos = value > 0;
+  const isNeg = value < 0;
+  const valColor = isPos ? "text-green-600" : isNeg ? "text-red-500" : "text-gray-300";
+  const btnLabel = value === 0 ? "Select an amount above" : isPos ? `Add +${value} kcal` : `Apply ${value} kcal`;
+
+  return (
+    <div className="bg-gray-50 rounded-2xl p-3 mb-4">
+      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center mb-2">Quick Adjust</p>
+      <div className="flex items-center gap-2">
+        <button
+          onMouseDown={() => startRepeat(-5)} onMouseUp={stopRepeat} onMouseLeave={stopRepeat}
+          onTouchStart={(e) => { e.preventDefault(); startRepeat(-5); }} onTouchEnd={stopRepeat}
+          className="w-11 h-11 rounded-full bg-white border border-gray-200 flex items-center justify-center text-xl font-bold text-gray-500 hover:bg-red-50 hover:border-red-200 hover:text-red-500 active:scale-95 transition-colors select-none"
+          data-testid="button-dial-dec"
+        >−</button>
+        <div
+          className="flex-1 flex items-center justify-center h-12 cursor-ns-resize select-none touch-none"
+          onWheel={handleWheel}
+          onTouchStart={(e) => { touchStartY.current = e.touches[0].clientY; touchStartValue.current = value; }}
+          onTouchMove={(e) => {
+            if (touchStartY.current === null) return;
+            const delta = touchStartY.current - e.touches[0].clientY;
+            setValue(clamp(touchStartValue.current + Math.round(delta / 3) * 5));
+          }}
+          onTouchEnd={() => { touchStartY.current = null; }}
+        >
+          <span className={`text-3xl font-extrabold tabular-nums transition-colors ${valColor}`}>
+            {value > 0 ? "+" : ""}{value}
+          </span>
+        </div>
+        <button
+          onMouseDown={() => startRepeat(5)} onMouseUp={stopRepeat} onMouseLeave={stopRepeat}
+          onTouchStart={(e) => { e.preventDefault(); startRepeat(5); }} onTouchEnd={stopRepeat}
+          className="w-11 h-11 rounded-full bg-white border border-gray-200 flex items-center justify-center text-xl font-bold text-gray-500 hover:bg-green-50 hover:border-green-200 hover:text-green-600 active:scale-95 transition-colors select-none"
+          data-testid="button-dial-inc"
+        >+</button>
+      </div>
+      <Button
+        className={`w-full mt-3 transition-colors ${!value ? "" : isPos ? "bg-green-600 hover:bg-green-700 text-white" : "bg-red-500 hover:bg-red-600 text-white"}`}
+        variant={value === 0 ? "outline" : "default"}
+        disabled={value === 0}
+        onClick={() => onSubmit(value)}
+        size="sm"
+        data-testid="button-quick-adjust-submit"
+      >
+        {btnLabel}
       </Button>
     </div>
   );
@@ -238,9 +322,14 @@ function EntryCard({ entry, onDelete, onDuplicate, onSave }: {
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className={`font-semibold text-sm ${calColor}`}>
-              {prefix}{entry.calories}
-            </span>
+            <div className="text-right">
+              <span className={`font-semibold text-sm ${calColor}`}>
+                {prefix}{entry.calories}
+              </span>
+              {entry.quantity && entry.quantity !== 1 && (
+                <p className="text-[10px] text-gray-400 leading-none mt-0.5">{Math.round(entry.calories / entry.quantity)} × {entry.quantity}</p>
+              )}
+            </div>
             {isMeal && (
               <button onClick={() => setExpanded(e => !e)} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
                 {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -302,15 +391,51 @@ export default function Dashboard() {
   // Quick Add/Subtract modal
   const [isBasicOpen, setIsBasicOpen] = useState(false);
   const [basicType, setBasicType] = useState<"add" | "subtract">("add");
-  const [basicCalories, setBasicCalories] = useState("");
+  const [basicCalsEach, setBasicCalsEach] = useState("");
+  const [basicQuantity, setBasicQuantity] = useState("1");
   const [basicName, setBasicName] = useState("");
+  const basicTotal = Math.round((parseInt(basicCalsEach) || 0) * (parseFloat(basicQuantity) || 1));
 
   const handleBasicSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cals = parseInt(basicCalories);
-    if (isNaN(cals) || cals <= 0) return;
-    addEntry({ date: todayDate, time: format(new Date(), "h:mm a"), type: basicType, name: basicName || (basicType === "add" ? "Quick Add" : "Correction"), calories: cals });
-    setBasicCalories(""); setBasicName(""); setIsBasicOpen(false);
+    const each = parseInt(basicCalsEach);
+    const qty = parseFloat(basicQuantity);
+    if (isNaN(each) || each <= 0 || isNaN(qty) || qty <= 0) return;
+    const total = Math.round(each * qty);
+    addEntry({ date: todayDate, time: format(new Date(), "h:mm a"), type: basicType, name: basicName || (basicType === "add" ? "Quick Add" : "Correction"), calories: total, ...(qty !== 1 ? { quantity: qty } : {}) });
+    setBasicCalsEach(""); setBasicQuantity("1"); setBasicName(""); setIsBasicOpen(false);
+  };
+
+  // Quick Adjust Dial
+  const [quickAdjustPending, setQuickAdjustPending] = useState<number | null>(null);
+  const [isQuickAdjustNameOpen, setIsQuickAdjustNameOpen] = useState(false);
+  const [quickAdjustName, setQuickAdjustName] = useState("");
+
+  const handleQuickAdjustRequest = (amount: number) => {
+    setQuickAdjustPending(amount);
+    if (appSettings.requireNameForQuickAdjust) {
+      setQuickAdjustName("");
+      setIsQuickAdjustNameOpen(true);
+    } else {
+      const autoName = amount > 0 ? `Quick Add +${amount}` : `Quick Subtract ${amount}`;
+      logQuickAdjust(amount, autoName);
+    }
+  };
+
+  const logQuickAdjust = (amount: number, name: string) => {
+    const type = amount > 0 ? "add" : "subtract";
+    const cals = Math.abs(amount);
+    addEntry({ date: todayDate, time: format(new Date(), "h:mm a"), type, name, calories: cals });
+    toast({ title: "Logged", description: `${name} — ${amount > 0 ? "+" : ""}${amount} kcal` });
+  };
+
+  const handleQuickAdjustConfirm = () => {
+    if (quickAdjustPending === null) return;
+    const name = quickAdjustName.trim() || (quickAdjustPending > 0 ? `Quick Add +${quickAdjustPending}` : `Quick Subtract ${quickAdjustPending}`);
+    logQuickAdjust(quickAdjustPending, name);
+    setIsQuickAdjustNameOpen(false);
+    setQuickAdjustPending(null);
+    setQuickAdjustName("");
   };
 
   // By Grams modal
@@ -401,6 +526,9 @@ export default function Dashboard() {
           <span className="text-sm font-medium opacity-80">kcal consumed</span>
         </div>
       </div>
+
+      {/* Quick Adjust Dial */}
+      <QuickAdjustDial onSubmit={handleQuickAdjustRequest} />
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3 mb-4">
@@ -535,7 +663,7 @@ export default function Dashboard() {
       <PhotoSection expirationHours={appSettings.photoExpirationHours} />
 
       {/* Quick Add/Subtract Modal */}
-      <Dialog open={isBasicOpen} onOpenChange={setIsBasicOpen}>
+      <Dialog open={isBasicOpen} onOpenChange={(o) => { setIsBasicOpen(o); if (!o) { setBasicCalsEach(""); setBasicQuantity("1"); setBasicName(""); } }}>
         <DialogContent className="sm:max-w-md w-[90vw] rounded-2xl">
           <DialogHeader><DialogTitle>Log Calories</DialogTitle></DialogHeader>
           <form onSubmit={handleBasicSubmit} className="space-y-4 pt-4">
@@ -543,18 +671,57 @@ export default function Dashboard() {
               <ToggleGroupItem value="add" className="w-full">Add</ToggleGroupItem>
               <ToggleGroupItem value="subtract" className="w-full">Subtract</ToggleGroupItem>
             </ToggleGroup>
-            <div className="space-y-2">
-              <Label htmlFor="basic-cals">Calories</Label>
-              <Input id="basic-cals" type="number" inputMode="numeric" value={basicCalories} onChange={e => setBasicCalories(e.target.value)} placeholder="e.g. 250" required min="1" autoFocus data-testid="input-calories" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="basic-cals">Calories each</Label>
+                <Input id="basic-cals" type="number" inputMode="numeric" value={basicCalsEach} onChange={e => setBasicCalsEach(e.target.value)} placeholder="e.g. 180" required min="1" autoFocus data-testid="input-calories" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="basic-qty">Quantity</Label>
+                <Input id="basic-qty" type="number" inputMode="decimal" value={basicQuantity} onChange={e => setBasicQuantity(e.target.value)} placeholder="1" min="0.1" step="0.1" data-testid="input-quantity" />
+              </div>
             </div>
+            {parseInt(basicCalsEach) > 0 && (
+              <div className="text-xs text-center text-gray-500 font-mono bg-gray-50 rounded-lg py-2">
+                {basicCalsEach} kcal each × {basicQuantity || 1} = <strong className="text-gray-800">{basicTotal} kcal total</strong>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="basic-name">Note (Optional)</Label>
-              <Input id="basic-name" value={basicName} onChange={e => setBasicName(e.target.value)} placeholder={basicType === "add" ? "e.g. Apple" : "e.g. Correction"} data-testid="input-name" />
+              <Input id="basic-name" value={basicName} onChange={e => setBasicName(e.target.value)} placeholder={basicType === "add" ? "e.g. Quest Bar" : "e.g. Correction"} data-testid="input-name" />
             </div>
-            <Button type="submit" className="w-full" disabled={!basicCalories || parseInt(basicCalories) <= 0} data-testid="button-submit-basic">
-              {basicType === "add" ? "Add" : "Subtract"} {basicCalories} kcal
+            <Button type="submit" className="w-full" disabled={!basicCalsEach || parseInt(basicCalsEach) <= 0 || parseFloat(basicQuantity) <= 0} data-testid="button-submit-basic">
+              {basicType === "add" ? "Add" : "Subtract"} {basicTotal > 0 ? basicTotal : ""} kcal
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Adjust Name Dialog */}
+      <Dialog open={isQuickAdjustNameOpen} onOpenChange={(o) => { if (!o) { setIsQuickAdjustNameOpen(false); setQuickAdjustPending(null); } }}>
+        <DialogContent className="sm:max-w-sm w-[90vw] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Name this entry</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {quickAdjustPending !== null && (
+              <div className={`text-center py-2 rounded-xl font-bold text-lg ${quickAdjustPending > 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
+                {quickAdjustPending > 0 ? "+" : ""}{quickAdjustPending} kcal
+              </div>
+            )}
+            <Input
+              placeholder="e.g. Coffee, Snack, Correction…"
+              value={quickAdjustName}
+              onChange={e => setQuickAdjustName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleQuickAdjustConfirm()}
+              autoFocus
+              data-testid="input-quick-adjust-name"
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={() => { setIsQuickAdjustNameOpen(false); setQuickAdjustPending(null); }}>Cancel</Button>
+              <Button onClick={handleQuickAdjustConfirm} data-testid="button-quick-adjust-confirm">Log Entry</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

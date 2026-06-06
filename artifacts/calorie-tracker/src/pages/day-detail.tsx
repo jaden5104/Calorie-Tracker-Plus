@@ -21,18 +21,23 @@ function AddIngredientForm({ onAdd }: { onAdd: (ing: Ingredient) => void }) {
   const [method, setMethod] = useState<"manual" | "grams">("manual");
   const [name, setName] = useState("");
   const [cals, setCals] = useState("");
+  const [qty, setQty] = useState("1");
   const [grams, setGrams] = useState("");
   const [serving, setServing] = useState("");
   const [calsPs, setCalsPs] = useState("");
 
-  const calcCals = method === "grams" && parseFloat(grams) > 0 && parseFloat(serving) > 0 && parseFloat(calsPs) > 0
-    ? Math.round((parseFloat(grams) / parseFloat(serving)) * parseFloat(calsPs)) : 0;
-  const canAdd = name.trim() && (method === "manual" ? parseInt(cals) > 0 : calcCals > 0);
+  const baseCals = method === "manual"
+    ? (parseInt(cals) || 0)
+    : (parseFloat(grams) > 0 && parseFloat(serving) > 0 && parseFloat(calsPs) > 0
+        ? Math.round((parseFloat(grams) / parseFloat(serving)) * parseFloat(calsPs)) : 0);
+  const qtyVal = parseFloat(qty) > 0 ? parseFloat(qty) : 1;
+  const totalCals = Math.round(baseCals * qtyVal);
+  const canAdd = !!name.trim() && baseCals > 0 && parseFloat(qty) > 0;
 
   const handleAdd = () => {
     if (!canAdd) return;
-    onAdd({ id: crypto.randomUUID(), name: name.trim(), inputMethod: method, calories: method === "manual" ? parseInt(cals) : calcCals, ...(method === "grams" ? { gramsEaten: parseFloat(grams), servingGrams: parseFloat(serving), caloriesPerServing: parseFloat(calsPs) } : {}) });
-    setName(""); setCals(""); setGrams(""); setServing(""); setCalsPs("");
+    onAdd({ id: crypto.randomUUID(), name: name.trim(), inputMethod: method, calories: totalCals, ...(parseFloat(qty) !== 1 ? { quantity: parseFloat(qty) } : {}), ...(method === "grams" ? { gramsEaten: parseFloat(grams), servingGrams: parseFloat(serving), caloriesPerServing: parseFloat(calsPs) } : {}) });
+    setName(""); setCals(""); setQty("1"); setGrams(""); setServing(""); setCalsPs("");
   };
 
   return (
@@ -43,15 +48,28 @@ function AddIngredientForm({ onAdd }: { onAdd: (ing: Ingredient) => void }) {
       </div>
       <Input placeholder="Ingredient name" value={name} onChange={e => setName(e.target.value)} />
       {method === "manual" ? (
-        <Input type="number" placeholder="Calories" value={cals} onChange={e => setCals(e.target.value)} />
+        <div className="grid grid-cols-2 gap-2">
+          <Input type="number" inputMode="numeric" placeholder="Calories each" value={cals} onChange={e => setCals(e.target.value)} />
+          <Input type="number" inputMode="decimal" placeholder="Quantity" value={qty} onChange={e => setQty(e.target.value)} min="0.1" step="0.1" />
+        </div>
       ) : (
-        <div className="grid grid-cols-3 gap-1">
-          <Input type="number" placeholder="g eaten" value={grams} onChange={e => setGrams(e.target.value)} />
-          <Input type="number" placeholder="serving g" value={serving} onChange={e => setServing(e.target.value)} />
-          <Input type="number" placeholder="cal/srv" value={calsPs} onChange={e => setCalsPs(e.target.value)} />
+        <>
+          <div className="grid grid-cols-3 gap-1">
+            <Input type="number" placeholder="g eaten" value={grams} onChange={e => setGrams(e.target.value)} />
+            <Input type="number" placeholder="serving g" value={serving} onChange={e => setServing(e.target.value)} />
+            <Input type="number" placeholder="cal/srv" value={calsPs} onChange={e => setCalsPs(e.target.value)} />
+          </div>
+          <Input type="number" inputMode="decimal" placeholder="Quantity (e.g. 1.5)" value={qty} onChange={e => setQty(e.target.value)} min="0.1" step="0.1" />
+        </>
+      )}
+      {baseCals > 0 && (
+        <div className="text-xs text-center text-gray-500 font-mono bg-gray-50 rounded-lg py-1.5">
+          {baseCals} each × {qty || 1} = <strong className="text-gray-800">{totalCals} kcal</strong>
         </div>
       )}
-      <Button size="sm" className="w-full" onClick={handleAdd} disabled={!canAdd}>Add Ingredient</Button>
+      <Button size="sm" className="w-full" onClick={handleAdd} disabled={!canAdd}>
+        Add Ingredient{totalCals > 0 ? ` (${totalCals} kcal)` : ""}
+      </Button>
     </div>
   );
 }
@@ -121,7 +139,12 @@ function EntryCard({ entry, isPastDay, dateLabel, onDelete, onDuplicateToday, on
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className={`font-semibold text-sm ${calColor}`}>{prefix}{entry.calories}</span>
+            <div className="text-right">
+              <span className={`font-semibold text-sm ${calColor}`}>{prefix}{entry.calories}</span>
+              {entry.quantity && entry.quantity !== 1 && (
+                <p className="text-[10px] text-gray-400 leading-none mt-0.5">{Math.round(entry.calories / entry.quantity)} × {entry.quantity}</p>
+              )}
+            </div>
             {isMeal && (
               <button onClick={() => setExpanded(e => !e)} className="text-gray-400 hover:text-gray-600 p-1">
                 {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -207,16 +230,20 @@ export default function DayDetail() {
   // Quick Add modal
   const [isBasicOpen, setIsBasicOpen] = useState(false);
   const [basicType, setBasicType] = useState<"add" | "subtract">("add");
-  const [basicCalories, setBasicCalories] = useState("");
+  const [basicCalsEach, setBasicCalsEach] = useState("");
+  const [basicQuantity, setBasicQuantity] = useState("1");
   const [basicName, setBasicName] = useState("");
+  const basicTotal = Math.round((parseInt(basicCalsEach) || 0) * (parseFloat(basicQuantity) || 1));
 
   const handleBasicSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cals = parseInt(basicCalories);
-    if (isNaN(cals) || cals <= 0) return;
+    const each = parseInt(basicCalsEach);
+    const qty = parseFloat(basicQuantity);
+    if (isNaN(each) || each <= 0 || isNaN(qty) || qty <= 0) return;
+    const total = Math.round(each * qty);
     withPastWarningAndRecalc("add a calorie entry", () => {
-      addEntry({ date: dateStr, time: format(new Date(), "h:mm a"), type: basicType, name: basicName || (basicType === "add" ? "Quick Add" : "Correction"), calories: cals });
-      setBasicCalories(""); setBasicName(""); setIsBasicOpen(false);
+      addEntry({ date: dateStr, time: format(new Date(), "h:mm a"), type: basicType, name: basicName || (basicType === "add" ? "Quick Add" : "Correction"), calories: total, ...(qty !== 1 ? { quantity: qty } : {}) });
+      setBasicCalsEach(""); setBasicQuantity("1"); setBasicName(""); setIsBasicOpen(false);
     });
   };
 
@@ -429,7 +456,7 @@ export default function DayDetail() {
       <PastDayConfirm action={pendingAction} dateLabel={dateLabel} hasReport={hasReport} onClose={() => setPendingAction(null)} />
 
       {/* Quick Add Modal */}
-      <Dialog open={isBasicOpen} onOpenChange={setIsBasicOpen}>
+      <Dialog open={isBasicOpen} onOpenChange={(o) => { setIsBasicOpen(o); if (!o) { setBasicCalsEach(""); setBasicQuantity("1"); setBasicName(""); } }}>
         <DialogContent className="sm:max-w-md w-[90vw] rounded-2xl">
           <DialogHeader><DialogTitle>Log Calories — {format(dayDate, "MMM d")}</DialogTitle></DialogHeader>
           <form onSubmit={handleBasicSubmit} className="space-y-4 pt-4">
@@ -437,16 +464,27 @@ export default function DayDetail() {
               <ToggleGroupItem value="add" className="w-full">Add</ToggleGroupItem>
               <ToggleGroupItem value="subtract" className="w-full">Subtract</ToggleGroupItem>
             </ToggleGroup>
-            <div className="space-y-2">
-              <Label>Calories</Label>
-              <Input type="number" inputMode="numeric" value={basicCalories} onChange={e => setBasicCalories(e.target.value)} placeholder="e.g. 250" required min="1" autoFocus />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Calories each</Label>
+                <Input type="number" inputMode="numeric" value={basicCalsEach} onChange={e => setBasicCalsEach(e.target.value)} placeholder="e.g. 180" required min="1" autoFocus />
+              </div>
+              <div className="space-y-2">
+                <Label>Quantity</Label>
+                <Input type="number" inputMode="decimal" value={basicQuantity} onChange={e => setBasicQuantity(e.target.value)} placeholder="1" min="0.1" step="0.1" />
+              </div>
             </div>
+            {parseInt(basicCalsEach) > 0 && (
+              <div className="text-xs text-center text-gray-500 font-mono bg-gray-50 rounded-lg py-2">
+                {basicCalsEach} × {basicQuantity || 1} = <strong className="text-gray-800">{basicTotal} kcal total</strong>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Note (Optional)</Label>
               <Input value={basicName} onChange={e => setBasicName(e.target.value)} placeholder="e.g. Apple" />
             </div>
-            <Button type="submit" className="w-full" disabled={!basicCalories || parseInt(basicCalories) <= 0}>
-              {basicType === "add" ? "Add" : "Subtract"} {basicCalories} kcal
+            <Button type="submit" className="w-full" disabled={!basicCalsEach || parseInt(basicCalsEach) <= 0 || parseFloat(basicQuantity) <= 0}>
+              {basicType === "add" ? "Add" : "Subtract"} {basicTotal > 0 ? basicTotal : ""} kcal
             </Button>
           </form>
         </DialogContent>

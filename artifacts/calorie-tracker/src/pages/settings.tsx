@@ -13,6 +13,29 @@ import { useToast } from "@/hooks/use-toast";
 
 const VERSION_HISTORY = [
   {
+    version: "1.3",
+    date: "June 2026",
+    features: [
+      "Added quantity support for calorie entries",
+      "Added decimal quantity support (e.g. 0.5, 1.5, 2.25)",
+      "Added quantity support for meal ingredients",
+      "Added quantity support for saved regular items",
+      "Added quantity support for saved meals",
+      "Added Quick Adjust Dial on the dashboard",
+      "Quick Adjust supports −1000 to +1000 calories",
+      "Quick Adjust moves in 5-calorie steps with hold-to-repeat",
+      "Quick Adjust entries are always logged",
+      "Added optional auto-name setting for Quick Adjust entries",
+    ],
+    improvements: [
+      "Updates section now uses separate dropdowns for each version",
+      "Duplicated entries preserve quantity",
+      "Saved items can be reused with a custom quantity",
+      "Entry cards show per-unit math when quantity ≠ 1",
+    ],
+    bugfixes: [] as string[],
+  },
+  {
     version: "1.2",
     date: "June 2026",
     features: [
@@ -114,7 +137,7 @@ export default function Settings() {
     <div className="flex-1 p-6 flex flex-col h-full animate-in fade-in duration-300 overflow-y-auto">
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Settings</h1>
-        <p className="text-xs text-gray-400 mt-1">App Version: v1.2</p>
+        <p className="text-xs text-gray-400 mt-1">App Version: v1.3</p>
       </header>
 
       <Accordion type="single" collapsible className="space-y-3">
@@ -411,59 +434,102 @@ export default function Settings() {
           </AccordionContent>
         </AccordionItem>
 
+        {/* Quick Adjust Settings */}
+        <AccordionItem value="quick-adjust" className="border border-gray-200 rounded-2xl overflow-hidden px-0">
+          <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-gray-50 transition-colors" data-testid="accordion-quick-adjust">
+            <span className="font-semibold text-gray-900">Quick Adjust Settings</span>
+          </AccordionTrigger>
+          <AccordionContent className="px-5 pb-5">
+            <div className="pt-2 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 pr-4">
+                  <p className="text-sm font-medium text-gray-800">Require name for Quick Adjust entries</p>
+                  <p className="text-xs text-gray-400 mt-0.5">When on, you'll be prompted to name each Quick Adjust entry before it's logged.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    if (appSettings.requireNameForQuickAdjust) {
+                      if (confirm("Quick Adjust entries will still be logged, but they will use automatic names instead of custom names (e.g. \"Quick Add +150\"). This may make your log harder to review later.\n\nTurn off custom names?")) {
+                        updateAppSettings({ requireNameForQuickAdjust: false });
+                      }
+                    } else {
+                      updateAppSettings({ requireNameForQuickAdjust: true });
+                    }
+                  }}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${appSettings.requireNameForQuickAdjust ? 'bg-primary' : 'bg-gray-200'}`}
+                  data-testid="toggle-require-name-quick-adjust"
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${appSettings.requireNameForQuickAdjust ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              {!appSettings.requireNameForQuickAdjust && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                  <p className="text-xs text-amber-700">Auto-names are active. Quick Adjust entries will be logged as <span className="font-mono font-medium">"Quick Add +150"</span> or <span className="font-mono font-medium">"Quick Subtract -75"</span>.</p>
+                </div>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+
         {/* Updates */}
         <AccordionItem value="updates" className="border border-gray-200 rounded-2xl overflow-hidden px-0">
           <AccordionTrigger className="px-5 py-4 hover:no-underline hover:bg-gray-50 transition-colors" data-testid="accordion-updates">
             <span className="font-semibold text-gray-900">Updates</span>
           </AccordionTrigger>
           <AccordionContent className="px-5 pb-5">
-            <div className="pt-2 space-y-6">
-              {VERSION_HISTORY.map(v => (
-                <div key={v.version}>
-                  <div className="flex items-baseline gap-2 mb-3">
-                    <h3 className="text-base font-bold text-gray-900">Version {v.version}</h3>
-                    <span className="text-xs text-gray-400">{v.date}</span>
-                  </div>
-                  <div className="space-y-3">
-                    {v.features.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">New Features</p>
-                        <ul className="space-y-1">
-                          {v.features.map((f, i) => (
-                            <li key={i} className="text-sm text-gray-700 flex gap-2">
-                              <span className="text-primary shrink-0">•</span> {f}
-                            </li>
-                          ))}
-                        </ul>
+            <div className="pt-2">
+              <Accordion type="single" collapsible className="space-y-2">
+                {VERSION_HISTORY.map(v => (
+                  <AccordionItem key={v.version} value={`v${v.version}`} className="border border-gray-100 rounded-xl overflow-hidden px-0">
+                    <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-gray-50 transition-colors">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-semibold text-gray-800 text-sm">Version {v.version}</span>
+                        <span className="text-[10px] text-gray-400">{v.date}</span>
                       </div>
-                    )}
-                    {v.improvements.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Improvements</p>
-                        <ul className="space-y-1">
-                          {v.improvements.map((imp, i) => (
-                            <li key={i} className="text-sm text-gray-700 flex gap-2">
-                              <span className="text-blue-400 shrink-0">•</span> {imp}
-                            </li>
-                          ))}
-                        </ul>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-4 pb-4">
+                      <div className="space-y-3 pt-1">
+                        {v.features.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">New Features</p>
+                            <ul className="space-y-1">
+                              {v.features.map((f, i) => (
+                                <li key={i} className="text-sm text-gray-700 flex gap-2">
+                                  <span className="text-primary shrink-0">•</span> {f}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {v.improvements.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Improvements</p>
+                            <ul className="space-y-1">
+                              {v.improvements.map((imp, i) => (
+                                <li key={i} className="text-sm text-gray-700 flex gap-2">
+                                  <span className="text-blue-400 shrink-0">•</span> {imp}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {v.bugfixes.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Bug Fixes</p>
+                            <ul className="space-y-1">
+                              {v.bugfixes.map((b, i) => (
+                                <li key={i} className="text-sm text-gray-700 flex gap-2">
+                                  <span className="text-green-500 shrink-0">•</span> {b}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {v.bugfixes.length > 0 && (
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Bug Fixes</p>
-                        <ul className="space-y-1">
-                          {v.bugfixes.map((b, i) => (
-                            <li key={i} className="text-sm text-gray-700 flex gap-2">
-                              <span className="text-green-500 shrink-0">•</span> {b}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
           </AccordionContent>
         </AccordionItem>

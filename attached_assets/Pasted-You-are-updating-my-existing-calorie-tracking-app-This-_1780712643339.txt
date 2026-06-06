@@ -1,0 +1,478 @@
+You are updating my existing calorie tracking app. This is a feature update, not a full rebuild.
+
+Please inspect the current codebase first, understand the existing structure, and preserve all current features, styling, localStorage data, reports, saved items, settings, photo storage, and app behavior unless specifically changed below.
+
+Update version:
+v1.3 — Quantity + Quick Adjust Dial + Updates Cleanup
+
+Main goals:
+
+1. Add quantity support to entries and meal ingredients.
+2. Add a quick calorie adjustment dial near the dashboard calorie circle.
+3. Make the Updates section cleaner by separating each update into its own dropdown/page.
+4. Preserve all existing v1.1 and v1.2 features.
+
+====================================================
+
+1. QUANTITY SUPPORT
+   ====================================================
+
+Add a Quantity field when the user creates calorie entries.
+
+Quantity should:
+
+* Default to 1
+* Allow decimals, such as 0.5, 1.5, 2.25
+* Must be greater than 0
+* Multiply the calories for that item
+
+Example:
+
+Food: Quest Bar
+Calories each: 180
+Quantity: 2
+
+Total calories added:
+180 × 2 = 360 calories
+
+Show the math clearly before saving:
+
+“180 calories × 2 = 360 calories”
+
+Apply Quantity to:
+
+* Manual calorie entries
+* Regular saved entries
+* Meal ingredients
+* Meal entries copied from saved meals
+* Duplicated entries when reasonable
+
+For existing entries that do not have quantity, treat quantity as 1.
+
+====================================================
+2. QUANTITY FOR MEAL INGREDIENTS
+================================
+
+Meal Entry ingredients should also support Quantity.
+
+Each ingredient should have:
+
+* Ingredient name
+* Input method
+* Quantity
+* Calories
+* Total ingredient calories
+
+Ingredient quantity should allow decimals.
+
+Manual ingredient example:
+
+Ingredient: Egg
+Calories each: 70
+Quantity: 2
+
+Total:
+70 × 2 = 140 calories
+
+Automatic grams ingredient example:
+
+Ingredient: Peanut Butter
+Grams eaten: 32g
+Serving size: 32g
+Calories per serving: 190
+Quantity: 1.5
+
+Base calculation:
+32 ÷ 32 × 190 = 190 calories
+
+Quantity calculation:
+190 × 1.5 = 285 calories
+
+The full meal total should automatically include quantity-adjusted ingredient totals.
+
+====================================================
+3. QUICK ADJUST DIAL ON DASHBOARD
+=================================
+
+Add a new Quick Adjust Dial directly near the main calorie circle on the Today dashboard.
+
+Purpose:
+The user can quickly add or subtract calories without opening the full entry form.
+
+Dial behavior:
+
+* Range: -1000 to +1000 calories
+* Step amount: 5 calories
+* Default selected amount: 0
+* User can swipe/scroll up and down to change the selected amount
+* Must work well on mobile
+* Must also work on desktop with mouse/trackpad
+* Clearly display the selected amount
+
+Examples:
+
+* +150
+* -75
+* +500
+* -250
+
+Button behavior:
+If selected amount is positive:
+Button text should be something like:
+“Add +150”
+
+If selected amount is negative:
+Button text should be something like:
+“Apply -75”
+
+If selected amount is 0:
+Button should be disabled.
+
+Important:
+Do not only use a plus icon, because the dial supports negative values too.
+
+====================================================
+4. QUICK ADJUST LOGGING
+=======================
+
+Quick Adjust should always create a log entry.
+
+Do not silently change the total without a log.
+
+Default behavior:
+When the user taps the Quick Adjust button, prompt the user to name the entry.
+
+Example prompt:
+“Name this quick entry”
+
+Examples:
+
+* Coffee
+* Snack
+* Correction
+* Quick Add
+
+If the user enters a name, save the log entry using that name.
+
+If the user cancels, do not apply the adjustment.
+
+====================================================
+5. OPTIONAL QUICK ADJUST AUTO-NAME SETTING
+==========================================
+
+Add a setting:
+
+Require name for Quick Adjust entries: On/Off
+
+Default:
+On
+
+If turned On:
+
+* The user must name the Quick Adjust entry before it is added.
+
+If turned Off:
+
+* Do not prompt for a name.
+* Automatically log the item as:
+
+  * “Quick Add +150” for positive values
+  * “Quick Subtract -75” for negative values
+
+When the user turns this setting Off, show a warning:
+
+“Quick Adjust entries will still be logged, but they will use automatic names instead of custom names. This may make your log harder to review later.”
+
+The user must confirm before disabling custom names.
+
+====================================================
+6. QUICK ADJUST DATA LOGIC
+==========================
+
+Quick Adjust entries should use the existing daily entry system.
+
+Suggested entry structure:
+
+{
+id,
+date: "YYYY-MM-DD",
+time,
+timestamp,
+type: "quick-adjust",
+name: "Coffee",
+calories: 150,
+quantity: 1,
+source: "quick-adjust"
+}
+
+For negative Quick Adjust values:
+
+* Store calories as a negative number OR use the existing subtract type, whichever fits the current codebase better.
+* The daily consumed total should update correctly.
+* The daily log should clearly show it as negative.
+
+Example log:
+“Correction — -75 calories — 9:42 PM”
+
+Important:
+The main calorie circle is still based on Total Consumed calories after all adds/subtracts.
+
+====================================================
+7. SAVED ITEMS + QUANTITY
+=========================
+
+Saved Regular items should support quantity when added.
+
+Example:
+Saved item:
+Quest Bar — 180 calories each
+
+When adding it:
+Quantity: 2
+Total added: 360 calories
+
+Saved Meals should preserve ingredient quantities.
+
+When a saved meal is added to today, the meal should calculate using its saved ingredient quantities.
+
+If the user edits a saved item or saved meal, allow quantity fields where appropriate.
+
+====================================================
+8. DUPLICATE ENTRIES + QUANTITY
+===============================
+
+Duplicating an entry should preserve quantity.
+
+Example:
+Original entry:
+Quest Bar
+180 calories each
+Quantity: 2
+Total: 360
+
+Duplicated entry should keep:
+
+* Name
+* Quantity
+* Total calories
+* Entry type
+* Ingredient structure if it is a meal
+
+Give the duplicated entry a new timestamp.
+
+====================================================
+9. UPDATES SECTION CLEANUP
+==========================
+
+The Updates section is becoming too cluttered.
+
+Clean it up.
+
+Preferred design:
+Inside Settings, the Updates section should show a list of app versions.
+
+Each version should be its own dropdown/accordion.
+
+Example:
+
+Updates
+
+> Version 1.3
+> Version 1.2
+> Version 1.1
+
+When the user taps a version, it expands and shows the notes for that update.
+
+Only one version may be expanded at a time if that makes the UI cleaner.
+
+Do not show all update notes at once by default.
+
+Keep the Updates section clean, simple, and easy to read.
+
+====================================================
+10. ADD VERSION 1.3 UPDATE NOTES
+================================
+
+Add this to the Updates section:
+
+Version 1.3
+
+New Features:
+
+* Added quantity support for calorie entries
+* Added decimal quantity support
+* Added quantity support for meal ingredients
+* Added quantity support for saved regular items
+* Added quantity support for saved meals
+* Added Quick Adjust Dial on the dashboard
+* Quick Adjust supports -1000 to +1000 calories
+* Quick Adjust moves in 5-calorie steps
+* Quick Adjust entries are always logged
+* Added optional auto-name setting for Quick Adjust entries
+
+Improvements:
+
+* Updates section now uses dropdowns for each version
+* Duplicated entries preserve quantity
+* Saved items can be reused with quantity
+
+====================================================
+11. SETTINGS UPDATES
+====================
+
+Add a new Settings section or setting under an existing section:
+
+Quick Adjust Settings:
+
+* Require name for Quick Adjust entries: On/Off
+
+Default:
+On
+
+If turned Off:
+
+* Show the warning described above
+* Require confirmation before saving that setting
+
+Also make sure the app version displays:
+App Version: v1.3
+
+====================================================
+12. DESIGN REQUIREMENTS
+=======================
+
+Keep the app clean, mobile-first, and polished.
+
+The Quick Adjust Dial should not clutter the dashboard.
+
+It should feel like a fast shortcut near the main calorie circle.
+
+Design goals:
+
+* Easy to swipe on mobile
+* Easy to understand
+* Selected value is large and readable
+* Positive values visually feel like adding
+* Negative values visually feel like subtracting
+* Button text changes based on positive/negative value
+* Disabled state at 0
+
+The Quantity field should be simple and not make forms feel crowded.
+
+Use clean labels:
+
+* Quantity
+* Calories each
+* Total calories
+
+====================================================
+13. VALIDATION
+==============
+
+Add validation:
+
+Quantity:
+
+* Required
+* Must be greater than 0
+* Decimals allowed
+
+Quick Adjust:
+
+* Selected amount cannot be 0
+* Range cannot go below -1000
+* Range cannot go above 1000
+* Must move in increments of 5
+
+Manual entries:
+
+* Calories each must be greater than 0
+* Quantity must be greater than 0
+
+Meal ingredients:
+
+* Ingredient name required
+* Quantity required
+* Quantity must be greater than 0
+* Calories or grams fields must be valid depending on method
+
+====================================================
+14. DATA COMPATIBILITY
+======================
+
+Preserve all existing data.
+
+Do not wipe:
+
+* Existing entries
+* Saved meals
+* Saved regular entries
+* Temporary photos
+* Grade reports
+* Weekly reports
+* Settings
+* Calorie color ranges
+
+For old entries without quantity:
+
+* Treat quantity as 1
+* Do not break display
+* Do not require old entries to be migrated unless necessary
+
+For old meal ingredients without quantity:
+
+* Treat quantity as 1
+
+====================================================
+15. TESTING / AUDIT
+===================
+
+After implementing, test carefully.
+
+Verify:
+
+Quantity:
+
+* Manual entry quantity works.
+* Decimal quantity works.
+* Quantity math displays correctly.
+* Old entries without quantity still display correctly.
+* Saved items work with quantity.
+* Duplicated entries preserve quantity.
+
+Meal Entry:
+
+* Manual ingredient quantity works.
+* Automatic grams ingredient quantity works.
+* Meal total updates correctly.
+* Saved meals preserve quantity.
+* Duplicated meals preserve quantity.
+
+Quick Adjust Dial:
+
+* Dial appears near the main calorie circle.
+* Dial ranges from -1000 to +1000.
+* Dial moves in steps of 5.
+* Selected amount displays clearly.
+* 0 disables the apply button.
+* Positive values add calories.
+* Negative values subtract calories.
+* Entry is logged every time.
+* Custom name prompt works when setting is On.
+* Auto-name works when setting is Off.
+* Warning appears before disabling custom names.
+
+Settings:
+
+* Quick Adjust setting exists.
+* App Version says v1.3.
+* Updates section uses separate dropdowns for v1.3, v1.2, and v1.1.
+* Updates section is not cluttered.
+
+Data:
+
+* Existing app data is preserved.
+* Refreshing the page keeps entries, settings, saved items, and reports.
+* No console errors.
+
+Please complete the v1.3 update now.

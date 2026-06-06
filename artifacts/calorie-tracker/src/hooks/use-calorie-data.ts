@@ -5,6 +5,7 @@ export interface Ingredient {
   name: string;
   inputMethod: "manual" | "grams";
   calories: number;
+  quantity?: number;
   gramsEaten?: number;
   servingGrams?: number;
   caloriesPerServing?: number;
@@ -18,6 +19,7 @@ export interface CalorieEntry {
   type: "add" | "subtract" | "grams" | "container" | "burned" | "meal";
   name: string;
   calories: number;
+  quantity?: number;
   gramsEaten?: number;
   servingGrams?: number;
   caloriesPerServing?: number;
@@ -53,7 +55,13 @@ export interface SavedMeal {
 
 export interface AppSettings {
   photoExpirationHours: 24 | 48;
+  requireNameForQuickAdjust: boolean;
 }
+
+const DEFAULT_APP_SETTINGS: AppSettings = {
+  photoExpirationHours: 24,
+  requireNameForQuickAdjust: true,
+};
 
 const DEFAULT_COLOR_RANGES: ColorRange[] = [
   { id: "1", min: 0, max: 1199, color: "#22c55e", label: "Under 1200" },
@@ -105,10 +113,11 @@ export function useCalorieData() {
   const [appSettings, setAppSettings] = useState<AppSettings>(() => {
     try {
       const stored = localStorage.getItem('app_settings');
-      return stored ? JSON.parse(stored) : { photoExpirationHours: 24 };
-    } catch {
-      return { photoExpirationHours: 24 };
-    }
+      if (stored) {
+        return { ...DEFAULT_APP_SETTINGS, ...JSON.parse(stored) };
+      }
+    } catch {}
+    return DEFAULT_APP_SETTINGS;
   });
 
   useEffect(() => {

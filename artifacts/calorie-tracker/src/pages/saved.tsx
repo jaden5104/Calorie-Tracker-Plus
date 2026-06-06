@@ -16,18 +16,23 @@ function AddIngredientInline({ onAdd }: { onAdd: (ing: Ingredient) => void }) {
   const [method, setMethod] = useState<"manual" | "grams">("manual");
   const [name, setName] = useState("");
   const [cals, setCals] = useState("");
+  const [qty, setQty] = useState("1");
   const [grams, setGrams] = useState("");
   const [serving, setServing] = useState("");
   const [calsPs, setCalsPs] = useState("");
 
-  const calcCals = method === "grams" && parseFloat(grams) > 0 && parseFloat(serving) > 0 && parseFloat(calsPs) > 0
-    ? Math.round((parseFloat(grams) / parseFloat(serving)) * parseFloat(calsPs)) : 0;
-  const canAdd = name.trim() && (method === "manual" ? parseInt(cals) > 0 : calcCals > 0);
+  const baseCals = method === "manual"
+    ? (parseInt(cals) || 0)
+    : (parseFloat(grams) > 0 && parseFloat(serving) > 0 && parseFloat(calsPs) > 0
+        ? Math.round((parseFloat(grams) / parseFloat(serving)) * parseFloat(calsPs)) : 0);
+  const qtyVal = parseFloat(qty) > 0 ? parseFloat(qty) : 1;
+  const totalCals = Math.round(baseCals * qtyVal);
+  const canAdd = !!name.trim() && baseCals > 0 && parseFloat(qty) > 0;
 
   const handleAdd = () => {
     if (!canAdd) return;
-    onAdd({ id: crypto.randomUUID(), name: name.trim(), inputMethod: method, calories: method === "manual" ? parseInt(cals) : calcCals, ...(method === "grams" ? { gramsEaten: parseFloat(grams), servingGrams: parseFloat(serving), caloriesPerServing: parseFloat(calsPs) } : {}) });
-    setName(""); setCals(""); setGrams(""); setServing(""); setCalsPs("");
+    onAdd({ id: crypto.randomUUID(), name: name.trim(), inputMethod: method, calories: totalCals, ...(parseFloat(qty) !== 1 ? { quantity: parseFloat(qty) } : {}), ...(method === "grams" ? { gramsEaten: parseFloat(grams), servingGrams: parseFloat(serving), caloriesPerServing: parseFloat(calsPs) } : {}) });
+    setName(""); setCals(""); setQty("1"); setGrams(""); setServing(""); setCalsPs("");
   };
 
   return (
@@ -38,15 +43,26 @@ function AddIngredientInline({ onAdd }: { onAdd: (ing: Ingredient) => void }) {
       </div>
       <Input placeholder="Ingredient name" value={name} onChange={e => setName(e.target.value)} />
       {method === "manual" ? (
-        <Input type="number" placeholder="Calories" value={cals} onChange={e => setCals(e.target.value)} />
+        <div className="grid grid-cols-2 gap-2">
+          <Input type="number" placeholder="Calories each" value={cals} onChange={e => setCals(e.target.value)} />
+          <Input type="number" inputMode="decimal" placeholder="Quantity" value={qty} onChange={e => setQty(e.target.value)} min="0.1" step="0.1" />
+        </div>
       ) : (
-        <div className="grid grid-cols-3 gap-1">
-          <Input type="number" placeholder="g eaten" value={grams} onChange={e => setGrams(e.target.value)} />
-          <Input type="number" placeholder="serving g" value={serving} onChange={e => setServing(e.target.value)} />
-          <Input type="number" placeholder="cal/srv" value={calsPs} onChange={e => setCalsPs(e.target.value)} />
+        <>
+          <div className="grid grid-cols-3 gap-1">
+            <Input type="number" placeholder="g eaten" value={grams} onChange={e => setGrams(e.target.value)} />
+            <Input type="number" placeholder="serving g" value={serving} onChange={e => setServing(e.target.value)} />
+            <Input type="number" placeholder="cal/srv" value={calsPs} onChange={e => setCalsPs(e.target.value)} />
+          </div>
+          <Input type="number" inputMode="decimal" placeholder="Quantity" value={qty} onChange={e => setQty(e.target.value)} min="0.1" step="0.1" />
+        </>
+      )}
+      {baseCals > 0 && (
+        <div className="text-xs text-center text-gray-500 font-mono bg-gray-50 rounded-lg py-1.5">
+          {baseCals} each × {qty || 1} = <strong className="text-gray-800">{totalCals} kcal</strong>
         </div>
       )}
-      <Button size="sm" className="w-full" onClick={handleAdd} disabled={!canAdd}>Add Ingredient</Button>
+      <Button size="sm" className="w-full" onClick={handleAdd} disabled={!canAdd}>Add Ingredient{totalCals > 0 ? ` (${totalCals} kcal)` : ""}</Button>
     </div>
   );
 }
@@ -106,22 +122,52 @@ function SavedMealCard({ meal, onDelete, onAddToday }: { meal: SavedMeal; onDele
   );
 }
 
-function SavedRegularCard({ item, onDelete, onAddToday }: { item: { id: string; name: string; calories: number; createdAt: string }; onDelete: () => void; onAddToday: () => void }) {
+function SavedRegularCard({ item, onDelete, onAddToday }: { item: { id: string; name: string; calories: number; createdAt: string }; onDelete: () => void; onAddToday: (qty: number) => void }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showQty, setShowQty] = useState(false);
+  const [qty, setQty] = useState("1");
+  const qtyVal = parseFloat(qty) > 0 ? parseFloat(qty) : 1;
+  const total = Math.round(item.calories * qtyVal);
+
+  const handleConfirmAdd = () => {
+    onAddToday(qtyVal);
+    setShowQty(false);
+    setQty("1");
+  };
 
   return (
     <Card>
-      <CardContent className="p-4 flex items-center justify-between">
-        <div>
-          <p className="font-semibold text-gray-900">{item.name}</p>
-          <p className="text-sm text-gray-500">{item.calories} kcal</p>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-semibold text-gray-900">{item.name}</p>
+            <p className="text-sm text-gray-500">{item.calories} kcal each</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setShowQty(v => !v)} data-testid={`button-add-regular-today-${item.id}`}>Add to Today</Button>
+            <button onClick={() => setConfirmDelete(true)} className="text-gray-300 hover:text-red-500 transition-colors p-1" data-testid={`button-delete-regular-${item.id}`}>
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={onAddToday} data-testid={`button-add-regular-today-${item.id}`}>Add to Today</Button>
-          <button onClick={() => setConfirmDelete(true)} className="text-gray-300 hover:text-red-500 transition-colors p-1" data-testid={`button-delete-regular-${item.id}`}>
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
+        {showQty && (
+          <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 space-y-1">
+                <Label className="text-[10px] text-gray-500 uppercase">Quantity</Label>
+                <Input type="number" inputMode="decimal" value={qty} onChange={e => setQty(e.target.value)} min="0.1" step="0.1" placeholder="1" autoFocus />
+              </div>
+              <div className="text-right shrink-0 mt-5">
+                <p className="text-xs text-gray-400">{item.calories} × {qty || 1}</p>
+                <p className="text-sm font-bold text-gray-900">{total} kcal</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button size="sm" variant="outline" onClick={() => { setShowQty(false); setQty("1"); }}>Cancel</Button>
+              <Button size="sm" onClick={handleConfirmAdd} disabled={parseFloat(qty) <= 0}>Add {total} kcal</Button>
+            </div>
+          </div>
+        )}
         <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
           <AlertDialogContent>
             <AlertDialogHeader>
@@ -174,9 +220,10 @@ export default function Saved() {
     toast({ title: "Added", description: `${meal.name} added to today.` });
   };
 
-  const handleAddRegularToday = (item: { name: string; calories: number }) => {
-    addEntry({ date: todayDate, time: format(new Date(), "h:mm a"), type: "add", name: item.name, calories: item.calories });
-    toast({ title: "Added", description: `${item.name} added to today.` });
+  const handleAddRegularToday = (item: { name: string; calories: number }, qty: number) => {
+    const total = Math.round(item.calories * qty);
+    addEntry({ date: todayDate, time: format(new Date(), "h:mm a"), type: "add", name: item.name, calories: total, ...(qty !== 1 ? { quantity: qty } : {}) });
+    toast({ title: "Added", description: `${item.name}${qty !== 1 ? ` × ${qty}` : ""} (${total} kcal) added to today.` });
   };
 
   return (
@@ -222,7 +269,7 @@ export default function Saved() {
             </div>
           ) : (
             savedRegular.map(item => (
-              <SavedRegularCard key={item.id} item={item} onDelete={() => deleteSavedRegular(item.id)} onAddToday={() => handleAddRegularToday(item)} />
+              <SavedRegularCard key={item.id} item={item} onDelete={() => deleteSavedRegular(item.id)} onAddToday={(qty) => handleAddRegularToday(item, qty)} />
             ))
           )}
         </TabsContent>

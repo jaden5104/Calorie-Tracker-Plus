@@ -1,0 +1,599 @@
+You are updating my existing calorie tracking app. This is a feature update, not a full rebuild.
+
+Please inspect the current codebase first, understand the existing structure, and preserve all current features, styling, localStorage data, and app behavior unless specifically changed below.
+
+Update version:
+v1.2 — Net Calories + Grading Reports Update
+
+Main goals:
+
+1. Allow net calories to go negative.
+2. Add an optional calorie grading/report system.
+3. Daily grade reports become available at 12:30 AM local time.
+4. Notify the user when a new grade report is available, if browser notifications are enabled.
+5. Add weekly grade reports based on the average of daily grades.
+
+====================================================
+
+1. NET CALORIES CAN GO NEGATIVE
+   ====================================================
+
+Currently, the app may prevent totals from going below 0.
+
+Change this only for Net Calories.
+
+Daily net calories should be:
+
+Net Calories = Total Consumed Calories - Calories Burned
+
+If burned calories are higher than consumed calories, net calories should be allowed to display as a negative number.
+
+Example:
+
+Consumed: 800 kcal
+Burned: 950 kcal
+Net: -150 kcal
+
+Important:
+
+* Total Consumed should still control the main calorie circle.
+* Calorie color ranges should still be based on Total Consumed.
+* Only Net Calories should be allowed to go negative.
+
+====================================================
+2. OPTIONAL GRADING SYSTEM
+==========================
+
+Add a new optional grading system.
+
+This should be disabled by default and enabled in Settings.
+
+Settings should include:
+
+Grading System
+
+* Enable Grading: On/Off
+* Ideal Calorie Goal Range
+
+  * Minimum goal calories
+  * Maximum goal calories
+* Grade Scale Settings
+* Grade Color Settings
+* No Data Day handling
+
+The grade should be based on TOTAL CONSUMED CALORIES only.
+
+Do not base the grade on net calories.
+
+Reason:
+Burned calories can affect net calories, but the grading system is meant to judge how close the user’s consumed calories were to their personal goal range.
+
+====================================================
+3. IDEAL GOAL RANGE = BEST GRADE
+================================
+
+Do not make “lowest calories = best grade.”
+
+Instead, the best grade should be based on the user’s ideal calorie goal range.
+
+Example:
+
+Ideal goal range:
+1600–2000 calories
+
+If the user eats within that range, they should receive the best score/grade.
+
+Default behavior:
+
+* Inside goal range = 100% / A+
+* Slightly outside goal range = lower grade
+* Far outside goal range = much lower grade
+
+This is more realistic and healthier than rewarding extremely low calories.
+
+====================================================
+4. DEFAULT SCORE CALCULATION
+============================
+
+Use this default scoring logic:
+
+If total consumed is within the goal range:
+score = 100
+
+If total consumed is below the goal minimum:
+deviationPercent = ((goalMin - totalConsumed) / goalMin) * 100
+
+If total consumed is above the goal maximum:
+deviationPercent = ((totalConsumed - goalMax) / goalMax) * 100
+
+Then:
+
+score = 100 - (deviationPercent * strictnessMultiplier)
+
+Default strictnessMultiplier:
+2
+
+Clamp score between 0 and 100.
+
+Example:
+Goal range: 1600–2000
+Consumed: 1440
+This is 10% below 1600.
+Score = 100 - 20 = 80%
+
+Score: 80%
+Grade: B-
+
+Make the strictness customizable in Settings if reasonable, but keep it simple. It can be a dropdown:
+
+* Lenient
+* Normal
+* Strict
+
+Suggested multipliers:
+
+* Lenient: 1.5
+* Normal: 2
+* Strict: 2.5
+
+Default:
+Normal
+
+====================================================
+5. STANDARD AMERICAN SCHOOL GRADE SCALE
+=======================================
+
+Use this default grading scale:
+
+A+ = 97–100
+A = 93–96
+A- = 90–92
+B+ = 87–89
+B = 83–86
+B- = 80–82
+C+ = 77–79
+C = 73–76
+C- = 70–72
+D+ = 67–69
+D = 63–66
+D- = 60–62
+F = 0–59
+
+Allow the user to customize the grade thresholds in Settings if reasonable.
+
+Keep advanced grade settings collapsed by default so the app stays clean.
+
+====================================================
+6. GRADE COLORS
+===============
+
+Color-code grade letters.
+
+Default colors:
+
+A / A+ / A- = green
+B / B+ / B- = light green
+C / C+ / C- = yellow
+D / D+ / D- = orange/red
+F = red/dark red
+
+Allow grade colors to be customized in Settings if easy.
+
+Keep this in a dropdown/accordion so Settings does not become cluttered.
+
+====================================================
+7. DAILY GRADE REPORTS
+======================
+
+Daily grade reports should only become available after the day is complete.
+
+A day is considered complete at:
+
+12:30 AM local time the next day.
+
+Example:
+The grade report for June 5 becomes available on June 6 at 12:30 AM.
+
+Before the report is available, show:
+
+“Today’s grade report will be available at 12:30 AM.”
+
+or for yesterday before 12:30 AM:
+
+“This grade report will be available at 12:30 AM.”
+
+Each daily grade report should show:
+
+* Date
+* Total consumed calories
+* Goal calorie range
+* Score percentage
+* Letter grade
+* Grade color
+* Short summary message
+* Whether the user was under, inside, or over their goal range
+
+Example:
+
+Daily Grade Report
+Friday, June 5
+
+Consumed: 1,850 kcal
+Goal Range: 1,600–2,000 kcal
+Score: 100%
+Grade: A+
+
+Summary:
+“You landed inside your goal range.”
+
+====================================================
+8. REPORT GENERATION LOGIC
+==========================
+
+Reports should be generated automatically when the app opens or refreshes.
+
+Create a function like:
+
+generateDueGradeReports()
+
+Logic:
+
+* Check all tracked dates.
+* For each date, calculate when the report becomes available.
+* reportAvailableAt = selected date + 1 day at 12:30 AM local time
+* If current time is after reportAvailableAt, generate the report.
+* If a report already exists, do not duplicate it.
+* If entries changed after the report was created, recalculate the report after confirmation.
+
+Store reports locally.
+
+Suggested daily report structure:
+
+{
+id,
+date: "YYYY-MM-DD",
+totalConsumed: 1850,
+goalMin: 1600,
+goalMax: 2000,
+score: 100,
+grade: "A+",
+gradeColor: "#22c55e",
+status: "inside_goal",
+summary: "You landed inside your goal range.",
+createdAt,
+updatedAt,
+wasRecalculated: false
+}
+
+====================================================
+9. NOTIFICATIONS
+================
+
+Add notification support for grade reports.
+
+Important:
+This is a Replit web app, so notifications should use browser/PWA notification support.
+
+Add a setting:
+
+Grade Report Notifications: On/Off
+
+When enabled:
+
+* Ask the user for browser notification permission.
+* If permission is granted, send a notification when a new daily grade report becomes available.
+* If permission is blocked, show a friendly message explaining that notifications are disabled.
+
+Notification example:
+
+“New Calorie Grade Report Available”
+“Your daily grade report for June 5 is ready.”
+
+Realistic browser limitation:
+If the app/browser is closed, the notification may not fire exactly at 12:30 AM. In that case, the app should still generate and show the report the next time the user opens the app.
+
+Also show an in-app banner when a new report is available:
+
+“New grade report available.”
+
+====================================================
+10. EDITING PAST DAYS RECALCULATES REPORTS
+==========================================
+
+If the user edits a past day that already has a grade report, warn them before applying the change.
+
+Warning text:
+
+“Warning: This day already has a grade report. Editing this day will recalculate the daily grade and may also update the weekly grade. Are you sure you want to continue?”
+
+This warning should appear when changing a past day by:
+
+* Adding entries
+* Deleting entries
+* Editing entries
+* Adding burned calories
+* Adding meal entries
+* Adding saved items
+* Duplicating entries into that day
+
+If the user confirms:
+
+* Apply the change.
+* Recalculate that day’s report.
+* Recalculate the weekly report if that day belongs to a completed week.
+
+If the user cancels:
+
+* Do not apply the change.
+
+====================================================
+11. WEEKLY GRADE REPORTS
+========================
+
+Add weekly grade reports.
+
+Weekly grade should be based on the average of the 7 daily percentage scores.
+
+Formula:
+
+Weekly Score = average of daily report scores
+
+Then convert that weekly score into the same letter grade scale.
+
+Default week format:
+Use Sunday through Saturday, unless the app already has a different calendar convention.
+
+Weekly report becomes available after the final day of that week has a completed daily grade report.
+
+Example:
+If the week is Sunday–Saturday, the weekly report becomes available Sunday at 12:30 AM after Saturday ends.
+
+Weekly report should show:
+
+* Week date range
+* Each daily grade
+* Average score
+* Weekly letter grade
+* Summary message
+
+Example:
+
+Weekly Grade Report
+June 1 – June 7
+
+Daily Grades:
+Sun: A
+Mon: B+
+Tue: A-
+Wed: C
+Thu: A+
+Fri: B
+Sat: A
+
+Weekly Score: 89%
+Weekly Grade: B+
+
+====================================================
+12. NO DATA DAYS
+================
+
+If a day has no calorie entries at all, do not automatically grade it as an F.
+
+Instead, mark it as:
+
+No Data
+
+Default behavior:
+
+* No Data days are excluded from weekly grade averages.
+
+Add a simple Settings option:
+
+No Data Days:
+
+* Exclude from weekly grade
+* Count as 0%
+
+Default:
+Exclude from weekly grade
+
+If the user has actual entries that total 0 calories, grade normally.
+
+====================================================
+13. WHERE TO SHOW REPORTS
+=========================
+
+Do not add a cluttered new bottom nav item unless necessary.
+
+Best places to show reports:
+
+Today page:
+
+* Small card showing latest available daily grade report.
+* If today is not complete, show “Today’s report available at 12:30 AM.”
+
+Calendar day details:
+
+* Show that day’s grade report if available.
+* If not available, show when it will be available.
+
+Settings:
+
+* Add grading settings.
+* Add notification settings.
+* Add update notes.
+
+Optional:
+Add a “Reports” card/button somewhere clean if needed.
+
+====================================================
+14. SETTINGS UI
+===============
+
+Keep Settings clean and organized with accordions/dropdowns.
+
+Suggested Settings sections:
+
+* Calorie Color Ranges
+* Temporary Photo Settings
+* Grading System
+* Updates
+* App/Data Options
+
+The Grading System section should include:
+
+* Enable Grading
+* Goal Min Calories
+* Goal Max Calories
+* Strictness: Lenient / Normal / Strict
+* Grade Report Notifications
+* No Data Days handling
+* Advanced Grade Scale
+* Grade Colors
+
+Advanced settings should be collapsed by default.
+
+====================================================
+15. UPDATES SECTION
+===================
+
+Add this to the Updates section:
+
+Version 1.2
+
+New Features:
+
+* Added optional calorie grading system
+* Added ideal calorie goal range for grading
+* Added daily grade reports
+* Added 12:30 AM report availability
+* Added browser notifications for new grade reports
+* Added weekly grade reports
+* Added customizable grading strictness
+* Added standard American school-style letter grades
+* Added grade colors
+* Added No Data day handling
+* Allowed net calories to go negative
+
+Improvements:
+
+* Daily reports are based on total consumed calories
+* Editing past days can recalculate reports after confirmation
+* Weekly grades average completed daily reports
+
+====================================================
+16. DATA STORAGE
+================
+
+Preserve existing data.
+
+Do not wipe current entries, saved items, settings, photos, or calorie color ranges.
+
+Add new localStorage keys carefully.
+
+Suggested new storage:
+
+gradingSettings = {
+enabled: false,
+goalMin: 1600,
+goalMax: 2000,
+strictness: "normal",
+strictnessMultiplier: 2,
+notificationsEnabled: false,
+noDataHandling: "exclude",
+gradeScale: [...],
+gradeColors: {...}
+}
+
+dailyGradeReports = {
+"2026-06-05": {
+date,
+totalConsumed,
+goalMin,
+goalMax,
+score,
+grade,
+gradeColor,
+status,
+summary,
+createdAt,
+updatedAt,
+wasRecalculated
+}
+}
+
+weeklyGradeReports = {
+"2026-W23": {
+weekStart,
+weekEnd,
+averageScore,
+grade,
+gradeColor,
+dailyReports,
+createdAt,
+updatedAt
+}
+}
+
+====================================================
+17. TESTING / AUDIT
+===================
+
+After implementing, test carefully.
+
+Verify:
+
+Net Calories:
+
+* Net calories can display negative.
+* Total consumed does not become negative unless existing app intentionally allows it.
+* Main calorie circle still uses total consumed.
+
+Grading Settings:
+
+* Grading can be enabled/disabled.
+* Goal range can be edited.
+* Strictness works.
+* Grade colors appear.
+* No Data setting works.
+
+Daily Reports:
+
+* Reports are not available before 12:30 AM.
+* Reports become available after 12:30 AM.
+* Reports use total consumed calories.
+* Reports show score, letter grade, color, and summary.
+
+Notifications:
+
+* Browser notification permission can be requested.
+* Notification sends when a new report is generated and permission is granted.
+* In-app banner appears for new reports.
+
+Past Day Editing:
+
+* Editing a day with a report shows a warning.
+* Confirming recalculates the report.
+* Canceling prevents the change.
+
+Weekly Reports:
+
+* Weekly grade averages daily percentage scores.
+* No Data days are excluded by default.
+* Weekly grade uses the same letter scale.
+
+Settings:
+
+* Settings remain clean.
+* Grading settings are in an accordion/dropdown.
+* Updates section includes v1.2 notes.
+
+Data:
+
+* Existing entries are preserved.
+* Existing saved items are preserved.
+* Existing settings are preserved.
+* Refreshing the app keeps reports and grading settings.
+* No console errors.
+
+Please complete the v1.2 update now.

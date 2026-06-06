@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { useCalorieData, CalorieEntry, Ingredient } from "../hooks/use-calorie-data";
 import { usePhotoStore } from "../hooks/use-photo-store";
+import { useGrading } from "../hooks/use-grading";
+import { isReportAvailable, reportAvailableAt } from "../lib/grading-utils";
 import { getColorForCalories, getContrastColor } from "../lib/color-utils";
 import { Plus, Minus, Scale, CalendarDays, Flame, ChefHat, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Camera, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -278,6 +280,13 @@ export default function Dashboard() {
   const { toast } = useToast();
   const todayDate = format(new Date(), "yyyy-MM-dd");
 
+  const { settings: gradingSettings, dailyReports, newReportDates, generateDueReports, dismissNewReports } = useGrading(entries);
+
+  useEffect(() => {
+    generateDueReports();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const todayEntries = entries.filter(e => e.date === todayDate);
   const consumed = todayEntries.reduce((acc, e) => {
     if (e.type === "burned") return acc;
@@ -285,7 +294,7 @@ export default function Dashboard() {
   }, 0);
   const burned = todayEntries.filter(e => e.type === "burned").reduce((acc, e) => acc + e.calories, 0);
   const displayConsumed = Math.max(0, consumed);
-  const net = Math.max(0, displayConsumed - burned);
+  const net = displayConsumed - burned;
 
   const range = getColorForCalories(displayConsumed, ranges);
   const badgeTextColor = getContrastColor(range.color);
@@ -394,11 +403,11 @@ export default function Dashboard() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      <div className="grid grid-cols-3 gap-3 mb-4">
         {[
           { label: "Consumed", value: displayConsumed, color: "text-gray-900" },
           { label: "Burned", value: burned, color: "text-orange-500" },
-          { label: "Net", value: net, color: "text-primary" },
+          { label: "Net", value: net, color: net < 0 ? "text-blue-500" : "text-primary" },
         ].map(stat => (
           <div key={stat.label} className="bg-gray-50 rounded-2xl p-3 text-center" data-testid={`stat-${stat.label.toLowerCase()}`}>
             <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">{stat.label}</p>
@@ -406,6 +415,59 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+
+      {/* New report banner */}
+      {newReportDates.length > 0 && (
+        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-2xl px-4 py-3 mb-4 animate-in fade-in duration-300">
+          <p className="text-sm font-medium text-green-800">
+            {newReportDates.length === 1 ? "New grade report available." : `${newReportDates.length} new grade reports available.`}
+          </p>
+          <button onClick={dismissNewReports} className="text-green-600 hover:text-green-800 text-xs font-semibold ml-2 shrink-0">Dismiss</button>
+        </div>
+      )}
+
+      {/* Grade card */}
+      {gradingSettings.enabled && (() => {
+        const sortedDates = Object.keys(dailyReports).sort().reverse();
+        const latestReport = sortedDates[0] ? dailyReports[sortedDates[0]] : null;
+        const todayReport = dailyReports[todayDate];
+        const reportToShow = todayReport ?? latestReport;
+        const todayAvailableAt = reportAvailableAt(todayDate);
+        const todayReady = isReportAvailable(todayDate);
+
+        return (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Grade Report</p>
+              {reportToShow && reportToShow.date !== todayDate && (
+                <span className="text-[10px] text-gray-400">{format(new Date(reportToShow.date + "T00:00:00"), "MMM d")}</span>
+              )}
+            </div>
+            {reportToShow ? (
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-extrabold shrink-0"
+                  style={{ backgroundColor: reportToShow.gradeColor + "22", color: reportToShow.gradeColor }}>
+                  {reportToShow.grade}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-gray-900">{reportToShow.score}%</span>
+                    <span className="text-xs font-medium" style={{ color: reportToShow.gradeColor }}>{reportToShow.grade}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5 truncate">{reportToShow.summary}</p>
+                  {!todayReady && (
+                    <p className="text-[10px] text-gray-400 mt-1">Today's report available at 12:30 AM</p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">
+                {todayReady ? "No graded days yet." : `Today's report available at ${format(todayAvailableAt, "h:mm a")}.`}
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Action buttons */}
       <div className="grid grid-cols-3 gap-3 mb-8">

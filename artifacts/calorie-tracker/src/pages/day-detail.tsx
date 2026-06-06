@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useRoute, Link } from "wouter";
 import { format, parseISO, isToday } from "date-fns";
-import { ArrowLeft, Trash2, Plus, Scale, Flame, ChefHat, MoreHorizontal, ChevronDown, ChevronUp, X } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, Scale, Flame, ChefHat, MoreHorizontal, ChevronDown, ChevronUp, X, Award } from "lucide-react";
 import { useCalorieData, CalorieEntry, Ingredient } from "../hooks/use-calorie-data";
+import { useGrading } from "../hooks/use-grading";
+import { isReportAvailable, reportAvailableAt } from "../lib/grading-utils";
 import { getColorForCalories, getContrastColor } from "../lib/color-utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -59,14 +61,16 @@ interface PastDayAction {
   onConfirm: () => void;
 }
 
-function PastDayConfirm({ action, dateLabel, onClose }: { action: PastDayAction | null; dateLabel: string; onClose: () => void }) {
+function PastDayConfirm({ action, dateLabel, hasReport, onClose }: { action: PastDayAction | null; dateLabel: string; hasReport: boolean; onClose: () => void }) {
   return (
     <AlertDialog open={!!action} onOpenChange={(o) => { if (!o) onClose(); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Edit Past Day?</AlertDialogTitle>
           <AlertDialogDescription>
-            Warning: You are editing {dateLabel}, not today. Are you sure you want to {action?.label.toLowerCase()}?
+            {hasReport
+              ? "Warning: This day already has a grade report. Editing this day will recalculate the daily grade and may also update the weekly grade. Are you sure you want to continue?"
+              : `Warning: You are editing ${dateLabel}, not today. Are you sure you want to ${action?.label.toLowerCase()}?`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -173,16 +177,31 @@ export default function DayDetail() {
   }, 0);
   const burned = dayEntries.filter(e => e.type === "burned").reduce((acc, e) => acc + e.calories, 0);
   const displayConsumed = Math.max(0, consumed);
-  const net = Math.max(0, displayConsumed - burned);
+  const net = displayConsumed - burned;
 
   const range = getColorForCalories(displayConsumed, ranges);
   const badgeTextColor = getContrastColor(range.color);
+
+  const { settings: gradingSettings, dailyReports, recalculateReport } = useGrading(entries);
+  const existingReport = dailyReports[dateStr];
+  const hasReport = !!existingReport && isPastDay;
 
   const [pendingAction, setPendingAction] = useState<PastDayAction | null>(null);
 
   const withPastWarning = (label: string, action: () => void) => {
     if (!isPastDay) { action(); return; }
     setPendingAction({ label, onConfirm: action });
+  };
+
+  const withPastWarningAndRecalc = (label: string, action: () => void) => {
+    if (!isPastDay) { action(); return; }
+    const wrappedAction = () => {
+      action();
+      if (gradingSettings.enabled && hasReport) {
+        setTimeout(() => recalculateReport(dateStr), 100);
+      }
+    };
+    setPendingAction({ label, onConfirm: wrappedAction });
   };
 
   // Quick Add modal
@@ -195,7 +214,7 @@ export default function DayDetail() {
     e.preventDefault();
     const cals = parseInt(basicCalories);
     if (isNaN(cals) || cals <= 0) return;
-    withPastWarning("add a calorie entry", () => {
+    withPastWarningAndRecalc("add a calorie entry", () => {
       addEntry({ date: dateStr, time: format(new Date(), "h:mm a"), type: basicType, name: basicName || (basicType === "add" ? "Quick Add" : "Correction"), calories: cals });
       setBasicCalories(""); setBasicName(""); setIsBasicOpen(false);
     });
@@ -210,7 +229,7 @@ export default function DayDetail() {
     e.preventDefault();
     const cals = parseInt(burnedCals);
     if (isNaN(cals) || cals <= 0) return;
-    withPastWarning("log burned calories", () => {
+    withPastWarningAndRecalc("log burned calories", () => {
       addEntry({ date: dateStr, time: format(new Date(), "h:mm a"), type: "burned", name: burnedNote || "Workout", calories: cals });
       setBurnedCals(""); setBurnedNote(""); setIsBurnedOpen(false);
     });
@@ -230,13 +249,13 @@ export default function DayDetail() {
     e.preventDefault();
     if (gramsTab === "eaten") {
       if (calcGrams <= 0) return;
-      withPastWarning("add a food entry by grams", () => {
+      withPastWarningAndRecalc("add a food entry by grams", () => {
         addEntry({ date: dateStr, time: format(new Date(), "h:mm a"), type: "grams", name: gramsName || "Weighed Food", calories: calcGrams, gramsEaten: parseFloat(gramsEaten), servingGrams: parseFloat(servingGrams), caloriesPerServing: parseFloat(calsPerServing) });
         setGramsEaten(""); setServingGrams(""); setCalsPerServing(""); setGramsName(""); setIsGramsOpen(false);
       });
     } else {
       if (containerError || calcContainer <= 0) return;
-      withPastWarning("add a weigh by container entry", () => {
+      withPastWarningAndRecalc("add a weigh by container entry", () => {
         addEntry({ date: dateStr, time: format(new Date(), "h:mm a"), type: "container", name: contName || "Weighed Food", calories: calcContainer, startingWeight: parseFloat(startWeight), endingWeight: parseFloat(endWeight), servingGrams: parseFloat(contServing), caloriesPerServing: parseFloat(contCals) });
         setStartWeight(""); setEndWeight(""); setContServing(""); setContCals(""); setContName(""); setIsGramsOpen(false);
       });
@@ -252,14 +271,14 @@ export default function DayDetail() {
 
   const handleMealSubmit = () => {
     if (!mealName.trim() || ingredients.length === 0) return;
-    withPastWarning("add a meal entry", () => {
+    withPastWarningAndRecalc("add a meal entry", () => {
       addEntry({ date: dateStr, time: format(new Date(), "h:mm a"), type: "meal", name: mealName.trim(), calories: mealTotal, ingredients });
       setMealName(""); setIngredients([]); setMealStep(1); setIsMealOpen(false);
     });
   };
 
   const handleDelete = (entry: CalorieEntry) => {
-    withPastWarning("delete this entry", () => deleteEntry(entry.id));
+    withPastWarningAndRecalc("delete this entry", () => deleteEntry(entry.id));
   };
 
   const handleDuplicateToday = (entry: CalorieEntry) => {
@@ -268,7 +287,7 @@ export default function DayDetail() {
   };
 
   const handleDuplicateHere = (entry: CalorieEntry) => {
-    withPastWarning("duplicate this entry to this day", () => {
+    withPastWarningAndRecalc("duplicate this entry to this day", () => {
       addEntry({ ...entry, date: dateStr, time: format(new Date(), "h:mm a") });
       toast({ title: "Duplicated", description: `${entry.name} added to ${dateLabel}.` });
     });
@@ -321,6 +340,46 @@ export default function DayDetail() {
         </div>
       </div>
 
+      {/* Grade Report Card */}
+      {gradingSettings.enabled && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Award className="w-4 h-4 text-gray-400" />
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Grade Report</p>
+          </div>
+          {existingReport ? (
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-extrabold shrink-0"
+                style={{ backgroundColor: existingReport.gradeColor + "22", color: existingReport.gradeColor }}>
+                {existingReport.grade}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2 mb-0.5">
+                  <span className="text-2xl font-bold text-gray-900">{existingReport.score}%</span>
+                  <span className="text-xs font-semibold" style={{ color: existingReport.gradeColor }}>{existingReport.grade}</span>
+                </div>
+                <p className="text-xs text-gray-500">{existingReport.summary}</p>
+                <div className="flex items-center gap-3 mt-1.5 text-[10px] text-gray-400">
+                  <span>Consumed: {existingReport.totalConsumed} kcal</span>
+                  <span>Goal: {existingReport.goalMin}–{existingReport.goalMax}</span>
+                </div>
+                {existingReport.wasRecalculated && (
+                  <p className="text-[10px] text-amber-500 mt-1">Recalculated</p>
+                )}
+              </div>
+            </div>
+          ) : isReportAvailable(dateStr) ? (
+            <p className="text-sm text-gray-400">No entries to grade for this day.</p>
+          ) : (
+            <p className="text-sm text-gray-400">
+              {isPastDay
+                ? `This grade report will be available at ${format(reportAvailableAt(dateStr), "h:mm a")}.`
+                : "Today's grade report will be available at 12:30 AM."}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Add actions for this day */}
       <div className="grid grid-cols-4 gap-2 mb-6">
         <Button variant="outline" className="flex flex-col h-auto py-2.5 gap-1.5" onClick={() => { setBasicType("add"); setIsBasicOpen(true); }} data-testid="button-day-add">
@@ -367,7 +426,7 @@ export default function DayDetail() {
       </div>
 
       {/* Past day confirmation */}
-      <PastDayConfirm action={pendingAction} dateLabel={dateLabel} onClose={() => setPendingAction(null)} />
+      <PastDayConfirm action={pendingAction} dateLabel={dateLabel} hasReport={hasReport} onClose={() => setPendingAction(null)} />
 
       {/* Quick Add Modal */}
       <Dialog open={isBasicOpen} onOpenChange={setIsBasicOpen}>
